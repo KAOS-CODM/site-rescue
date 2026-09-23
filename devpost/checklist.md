@@ -50,7 +50,7 @@ Build mode: fast (recorded at Slice 1 approval — concise narration and verific
   Learner check: **(early checkpoint)** Run a real URL end to end in the browser and tell me: what did you notice, and what would you change? — your feedback shapes slices 5–6.
   Commit: `Wire end-to-end rescue plan journey`
 
-- [ ] **5. Failure states and control-room polish**
+- [x] **5. Failure states and control-room polish**
   Becomes usable: every PRD failure path behaves honestly end-to-end (invalid URL, unreachable, internal error, partial-scan warning, AI-failure panel with working Retry) and the look-and-feel gets its final pass.
   Why now: the honesty rule is a product requirement, not garnish — harden it after the happy path exists and before the repo is dressed for shipping.
   PRD ref: `prd.md > States and Boundaries` (all states), `prd.md > Look and Feel`, `prd.md > Starting a scan` (criteria 3)

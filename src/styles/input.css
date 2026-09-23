@@ -188,11 +188,18 @@
 .finding-card[open] {
   border-color: var(--color-neutral-700);
 }
+/* Finding hierarchy (slice 5): the human-readable problem title leads on
+   row 1; the technical type ID sits beneath it as secondary, developer-facing
+   metadata. The chip spans both rows on the left, the toggle on the right. */
 .card-summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "chip title toggle"
+    "chip type toggle";
   align-items: center;
-  gap: calc(var(--spacing) * 3);
+  row-gap: 2px;
+  column-gap: calc(var(--spacing) * 3);
   padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
   cursor: pointer;
   list-style: none;
@@ -202,7 +209,7 @@
 }
 .card-summary::after {
   content: "+";
-  margin-left: auto;
+  grid-area: toggle;
   font-family: var(--font-mono);
   color: var(--color-neutral-500);
 }
@@ -210,13 +217,14 @@
   content: "\2013";
 }
 .card-title {
-  flex: 1;
+  grid-area: title;
   min-width: 0;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-neutral-100);
+  color: var(--color-neutral-50);
 }
 .card-type {
+  grid-area: type;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-neutral-500);
@@ -289,8 +297,69 @@
   overflow-y: auto;
 }
 
+/* ---------------- evidence presentation (slice 5) ----------------
+   Tier 1 (.evidence-human): concise human-readable lines derived from the
+   scanner's own structured evidence — presentation, never invention.
+   Tier 2 (.evidence-raw): the full scanner JSON in a collapsed <details>,
+   so technical evidence is never hidden or replaced. */
+.evidence-human {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1);
+}
+.evidence-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.evidence-key {
+  flex: none;
+  color: var(--color-neutral-500);
+}
+.evidence-key::after {
+  content: ":";
+}
+.evidence-val {
+  min-width: 0;
+  color: var(--color-neutral-200);
+  word-break: break-word;
+}
+.evidence-val-absent {
+  color: var(--color-amber-500);
+}
+.evidence-raw > summary {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-500);
+  cursor: pointer;
+  list-style: none;
+}
+.evidence-raw > summary::-webkit-details-marker {
+  display: none;
+}
+.evidence-raw > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--color-neutral-500);
+}
+.evidence-raw[open] > summary::after {
+  content: "\2013";
+}
+.evidence-raw > .evidence-pre {
+  margin-top: calc(var(--spacing) * 1.5);
+}
+
 /* ---------------- chips (priority labels on cards) ---------------- */
 .chip {
+  grid-area: chip;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;

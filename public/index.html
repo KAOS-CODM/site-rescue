@@ -11,8 +11,11 @@
 
   <!-- Small header: product name + tagline (prd.md > Screens and Layout > Start screen) -->
   <header class="border-b border-neutral-800">
-    <div class="mx-auto flex max-w-3xl items-baseline justify-between px-6 py-4">
-      <span class="font-mono text-xs uppercase tracking-[0.25em] text-neutral-400">Site&nbsp;Rescue</span>
+    <!-- Hierarchy: product name is primary (larger, bolder, brighter, wider
+         tracking); the tagline is secondary (smaller, dimmer). Stacks on
+         narrow screens, sits side-by-side from sm: up. -->
+    <div class="mx-auto flex max-w-3xl flex-col gap-1 px-6 py-4 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+      <span class="font-mono text-sm font-semibold uppercase tracking-[0.3em] text-neutral-100">Site&nbsp;Rescue</span>
       <span class="font-mono text-xs text-neutral-500">Find what's broken. Fix what matters.</span>
     </div>
   </header>

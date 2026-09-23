@@ -10,6 +10,9 @@
 //   prioritization/explanation/tasks. On AI failure the findings are shown
 //   as-is and Retry re-calls /api/plan only — the site is never re-scanned.
 // - All page/AI text is inserted via textContent (untrusted data — never HTML).
+// - Evidence rendering is presentation-only: concise human-readable lines are
+//   derived from the scanner's structured evidence fields (never invented);
+//   the full scanner JSON always stays one expansion deeper.
 
 const form = document.getElementById('scan-form');
 const input = document.getElementById('url-input');
@@ -281,6 +284,230 @@ function evidencePre(data) {
   return el('pre', 'evidence-pre', json);
 }
 
+/* ---------------- evidence presentation layer ----------------
+   Converts KNOWN structured scanner evidence into concise human-readable
+   lines (slice 5). Hard rules (honesty + scanner-as-source-of-truth):
+   - only echoes fields the scanner actually recorded — never invents URLs,
+     selectors, counts, or evidence;
+   - a null/absent/empty field is labeled as such, not papered over;
+   - unknown evidence shapes fall back to the raw JSON block, so technical
+     evidence is never hidden — the full scanner JSON always stays one
+     expansion deeper even when human-readable lines are shown. */
+
+function presenceLine(label, value) {
+  if (value === null || value === undefined) return { label, value: 'not found', absent: true };
+  const text = String(value);
+  if (text.trim() === '') return { label, value: 'empty', absent: true };
+  return { label, value: text };
+}
+
+const EVIDENCE_VIEWS = {
+  'seo.title.missing': (e) => [presenceLine('Title element', e.title)],
+
+  'seo.title.too_long': (e) => {
+    const lines = [presenceLine('Title', e.title)];
+    if (typeof e.length === 'number' && typeof e.threshold === 'number') {
+      lines.push({ label: 'Length', value: `${e.length} characters (limit ${e.threshold})` });
+    }
+    return lines;
+  },
+
+  'seo.meta_description.missing': (e) => [presenceLine('Meta description element', e.metaDescription)],
+
+  'seo.viewport.missing': (e) => [presenceLine('Viewport meta element', e.viewportMeta)],
+
+  'accessibility.img_alt.missing': (e) => {
+    const lines = [];
+    if (typeof e.missingCount === 'number') {
+      lines.push({ label: 'Images without alt', value: String(e.missingCount) });
+    }
+    const examples = Array.isArray(e.examples) ? e.examples : [];
+    examples.forEach((img, i) => {
+      const src = img && img.src !== null && img.src !== undefined && img.src !== ''
+        ? `src="${img.src}"`
+        : '(no src attribute)';
+      lines.push({ label: `Example ${i + 1}`, value: src });
+    });
+    if (typeof e.decorativeExcluded === 'number') {
+      lines.push({ label: 'Decorative excluded', value: `${e.decorativeExcluded} image(s) with alt=""` });
+    }
+    return lines;
+  },
+
+  'seo.h1.missing': (e) => {
+    const lines = [];
+    if (typeof e.h1Count === 'number') lines.push({ label: 'H1 elements', value: String(e.h1Count) });
+    if (typeof e.headingCount === 'number') lines.push({ label: 'Total headings', value: String(e.headingCount) });
+    return lines;
+  },
+
+  'seo.h1.multiple': (e) => {
+    const lines = [];
+    if (typeof e.h1Count === 'number') lines.push({ label: 'H1 elements', value: String(e.h1Count) });
+    (Array.isArray(e.h1Texts) ? e.h1Texts : []).forEach((text, i) => {
+      lines.push({ label: `H1 #${i + 1}`, value: String(text) });
+    });
+    return lines;
+  },
+
+  'seo.heading_levels.skipped': (e) => (Array.isArray(e.skips) ? e.skips : [])
+    .filter((skip) => skip && typeof skip === 'object')
+    .map((skip, i) => ({
+      label: `Skip ${i + 1}`,
+      value: skip.text ? `${skip.from} → ${skip.to}: "${skip.text}"` : `${skip.from} → ${skip.to}`,
+    })),
+
+  'accessibility.lang.missing': (e) => [presenceLine('HTML lang attribute', e.langAttribute)],
+
+  'seo.canonical.missing': (e) => [presenceLine('Canonical link', e.canonical)],
+
+  'technical.favicon.missing': (e) => {
+    const lines = [];
+    if (e.htmlIconLink === false) lines.push({ label: 'Icon link in HTML', value: 'not found', absent: true });
+    if (e.rootProbe && e.rootProbe.path !== undefined && e.rootProbe.path !== null) {
+      lines.push({ label: 'Root probe', value: `${e.rootProbe.path} → HTTP ${e.rootProbe.status}` });
+    }
+    return lines;
+  },
+
+  'accessibility.link_text.generic': (e) => {
+    const lines = [];
+    if (typeof e.matchedCount === 'number') {
+      lines.push({ label: 'Links with generic text', value: String(e.matchedCount) });
+    }
+    const examples = Array.isArray(e.examples) ? e.examples : [];
+    examples.forEach((anchor, i) => {
+      const text = anchor && anchor.text;
+      const shown = (text === null || text === undefined || text === '')
+        ? '(empty text)'
+        : `"${text}"`;
+      lines.push({
+        label: `Link ${i + 1}`,
+        value: anchor && anchor.href ? `${shown} → ${anchor.href}` : shown,
+      });
+    });
+    return lines;
+  },
+
+  'technical.https.missing': (e) => [
+    presenceLine('Requested URL', e.requestedUrl),
+    presenceLine('Final URL', e.finalUrl),
+  ],
+
+  'perf.slow_response': (e) => {
+    const lines = [];
+    if (typeof e.ttfbMs === 'number') {
+      lines.push({
+        label: 'Time to first byte',
+        value: typeof e.thresholdMs === 'number'
+          ? `${e.ttfbMs} ms (limit ${e.thresholdMs} ms)`
+          : `${e.ttfbMs} ms`,
+      });
+    }
+    return lines;
+  },
+
+  'seo.robots.signals': (e) => {
+    const lines = [];
+    const rawSignal = (label, signal) => {
+      if (!signal || typeof signal !== 'object') return;
+      if (signal.present !== true) {
+        lines.push({ label, value: 'not present', absent: true });
+        return;
+      }
+      const raw = signal.raw;
+      if (raw === null || raw === undefined || String(raw).trim() === '') {
+        lines.push({ label, value: 'present — empty value', absent: true });
+        return;
+      }
+      lines.push({ label, value: String(raw) });
+    };
+    rawSignal('Meta robots', e.metaRobots);
+    rawSignal('X-Robots-Tag', e.xRobotsTag);
+
+    const robots = e.robotsTxt;
+    if (robots && typeof robots === 'object') {
+      if (robots.checked !== true) {
+        lines.push({
+          label: 'robots.txt',
+          value: robots.reason ? `not checked — ${robots.reason}` : 'not checked',
+          absent: true,
+        });
+      } else if (robots.exists !== true) {
+        lines.push({ label: 'robots.txt', value: 'not found', absent: true });
+      } else if (robots.matchedRule) {
+        lines.push({ label: 'robots.txt rule', value: String(robots.matchedRule) });
+      } else if (robots.applicable === false) {
+        lines.push({ label: 'robots.txt', value: 'checked — no rules apply to this path' });
+      } else {
+        lines.push({ label: 'robots.txt', value: 'checked — no rule matched this path' });
+      }
+    }
+
+    // Scanner's derived conclusion — clearly labeled as derived; the raw
+    // signals above stay separate (spec > robots evidence model).
+    const interp = e.interpretation;
+    if (interp && interp.derived === true) {
+      const indexing = interp.indexing && Array.isArray(interp.indexing.because) ? interp.indexing.because : [];
+      const crawling = interp.crawling && Array.isArray(interp.crawling.because) ? interp.crawling.because : [];
+      for (const cause of indexing) lines.push({ label: 'Indexing (derived)', value: String(cause) });
+      for (const cause of crawling) lines.push({ label: 'Crawling (derived)', value: String(cause) });
+    }
+    return lines;
+  },
+};
+
+/** Concise human-readable lines for a finding, or null when the evidence
+ *  shape is unknown — in which case the caller shows the raw JSON only. */
+function evidenceLines(finding) {
+  const evidence = finding && finding.evidence;
+  if (!evidence || typeof evidence !== 'object') return null;
+  const build = EVIDENCE_VIEWS[finding.type];
+  if (!build) return null;
+  let lines;
+  try {
+    lines = build(evidence);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(lines)) return null;
+  const usable = lines.filter(
+    (line) => line && typeof line.label === 'string' && typeof line.value === 'string',
+  );
+  return usable.length > 0 ? usable : null;
+}
+
+// Evidence block: human-readable lines first (presentation over the scanner's
+// own fields), full scanner JSON in a collapsed <details> underneath — the
+// technical tier is never hidden, never replaced, never AI-generated.
+function evidenceBlock(finding, labelPrefix) {
+  const block = el('div', 'card-block');
+  block.append(el('p', 'micro-label', `${labelPrefix} (${finding.type})`));
+
+  const lines = evidenceLines(finding);
+  if (lines) {
+    const human = el('div', 'evidence-human');
+    for (const line of lines) {
+      const row = el('div', 'evidence-line');
+      row.append(el('span', 'evidence-key', line.label));
+      row.append(
+        el('span', line.absent ? 'evidence-val evidence-val-absent' : 'evidence-val', line.value),
+      );
+      human.append(row);
+    }
+    block.append(human);
+
+    const raw = el('details', 'evidence-raw');
+    raw.append(el('summary', 'evidence-raw-summary', 'Technical evidence (JSON)'));
+    raw.append(evidencePre(finding.evidence));
+    block.append(raw);
+  } else {
+    // Unknown/absent shape: fall back to the raw JSON, shown directly.
+    block.append(evidencePre(finding.evidence));
+  }
+  return block;
+}
+
 function renderResults() {
   showScreen('results');
   retryStatus.textContent = '';
@@ -395,12 +622,11 @@ function planCard(result, finding, priority) {
   }
   body.append(aiBlock);
 
-  // Scanner: raw technical evidence for traceability.
+  // Scanner: evidence for traceability — human-readable lines first
+  // (presentation over the scanner's own fields), full JSON one expansion
+  // deeper (never hidden, never replaced).
   if (finding) {
-    const evidence = el('div', 'card-block');
-    evidence.append(el('p', 'micro-label', `Scanner · evidence (${finding.type})`));
-    evidence.append(evidencePre(finding.evidence));
-    body.append(evidence);
+    body.append(evidenceBlock(finding, 'Scanner · evidence'));
   }
 
   card.append(body);
@@ -429,10 +655,7 @@ function rawCard(finding) {
   card.append(summary);
 
   const body = el('div', 'card-body');
-  const evidence = el('div', 'card-block');
-  evidence.append(el('p', 'micro-label', `Evidence (${finding.type})`));
-  evidence.append(evidencePre(finding.evidence));
-  body.append(evidence);
+  body.append(evidenceBlock(finding, 'Evidence'));
   card.append(body);
   return card;
 }
