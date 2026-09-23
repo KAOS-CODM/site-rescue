@@ -18,50 +18,188 @@
   </header>
 
   <main class="mx-auto max-w-3xl px-6 py-14">
-    <!-- Headline + short explanation -->
-    <h1 class="text-4xl font-semibold tracking-tight text-neutral-50">
-      Turn a website audit into a rescue plan.
-    </h1>
-    <p class="mt-4 max-w-2xl text-neutral-400">
-      Paste a website URL and Site Rescue will scan it, identify real issues, and turn
-      those findings into a prioritized list of what to fix next.
-    </p>
 
-    <!-- Main interaction: URL input + Scan website button -->
-    <form id="scan-form" novalidate class="mt-8 rounded-md border border-neutral-800 bg-neutral-900/60 p-6">
-      <label for="url-input" class="block font-mono text-xs uppercase tracking-wider text-neutral-500">
-        Website URL
-      </label>
-      <div class="mt-2 flex gap-3">
-        <input
-          id="url-input"
-          name="url"
-          type="text"
-          autocomplete="url"
-          spellcheck="false"
-          placeholder="https://example.com"
-          aria-describedby="url-error url-hint"
-          class="min-w-0 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 font-mono text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-amber-500/70 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
-        >
-        <button
-          type="submit"
-          class="rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-neutral-950 transition-colors hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-950"
-        >
-          Scan website
-        </button>
-      </div>
-      <p id="url-error" role="alert" class="mt-2 hidden text-sm text-red-400"></p>
-      <p id="url-hint" class="mt-3 text-xs text-neutral-500">
-        Enter a <span class="text-neutral-300">public</span> website URL — Site Rescue scans one page at a time.
+    <!-- ============================================================ -->
+    <!-- State 1: start screen (prd.md > Screens and Layout)          -->
+    <!-- ============================================================ -->
+    <section id="screen-start">
+      <!-- Headline + short explanation -->
+      <h1 class="text-4xl font-semibold tracking-tight text-neutral-50">
+        Turn a website audit into a rescue plan.
+      </h1>
+      <p class="mt-4 max-w-2xl text-neutral-400">
+        Paste a website URL and Site Rescue will scan it, identify real issues, and turn
+        those findings into a prioritized list of what to fix next.
       </p>
-    </form>
 
-    <!-- The three-step idea: Scan → Prioritize → Fix -->
-    <p class="mt-6 font-mono text-xs tracking-wider text-neutral-500">
-      Scan <span class="text-amber-500">&rarr;</span>
-      Prioritize <span class="text-amber-500">&rarr;</span>
-      Fix
-    </p>
+      <!-- Main interaction: URL input + Scan website button -->
+      <form id="scan-form" novalidate class="mt-8 rounded-md border border-neutral-800 bg-neutral-900/60 p-6">
+        <label for="url-input" class="block font-mono text-xs uppercase tracking-wider text-neutral-500">
+          Website URL
+        </label>
+        <div class="mt-2 flex gap-3">
+          <input
+            id="url-input"
+            name="url"
+            type="text"
+            autocomplete="url"
+            spellcheck="false"
+            placeholder="https://example.com"
+            aria-describedby="url-error url-hint"
+            class="min-w-0 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 font-mono text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-amber-500/70 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+          >
+          <button
+            type="submit"
+            class="rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-neutral-950 transition-colors hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-950"
+          >
+            Scan website
+          </button>
+        </div>
+        <p id="url-error" role="alert" class="mt-2 hidden text-sm text-red-400"></p>
+        <p id="url-hint" class="mt-3 text-xs text-neutral-500">
+          Enter a <span class="text-neutral-300">public</span> website URL — Site Rescue scans one page at a time.
+        </p>
+      </form>
+
+      <!-- The three-step idea: Scan → Prioritize → Fix -->
+      <p class="mt-6 font-mono text-xs tracking-wider text-neutral-500">
+        Scan <span class="text-amber-500">&rarr;</span>
+        Prioritize <span class="text-amber-500">&rarr;</span>
+        Fix
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- State 2: scanning — honest steps tied to real request phases -->
+    <!-- (prd.md > Scanning in progress: no fake percentages)         -->
+    <!-- ============================================================ -->
+    <section id="screen-scanning" class="hidden">
+      <p class="font-mono text-xs uppercase tracking-wider text-neutral-500">Rescue in progress</p>
+      <h1 class="mt-4 break-all text-2xl font-semibold tracking-tight text-neutral-50" id="scanning-url"></h1>
+
+      <ol id="step-list" class="mt-8" aria-live="polite">
+        <li class="step" data-step="1" data-state="pending">
+          <span class="step-dot" aria-hidden="true"></span>
+          <div class="step-text">
+            <div class="step-row">
+              <span class="step-label">Scanning website</span>
+              <span class="step-state">waiting</span>
+            </div>
+            <p class="step-hint">Fetching HTML, headers, robots.txt and favicon, then running the checks</p>
+          </div>
+        </li>
+        <li class="step" data-step="2" data-state="pending">
+          <span class="step-dot" aria-hidden="true"></span>
+          <div class="step-text">
+            <div class="step-row">
+              <span class="step-label">Analyzing findings</span>
+              <span class="step-state">waiting</span>
+            </div>
+            <p class="step-hint">Collecting the scanner's evidence-backed findings</p>
+          </div>
+        </li>
+        <li class="step" data-step="3" data-state="pending">
+          <span class="step-dot" aria-hidden="true"></span>
+          <div class="step-text">
+            <div class="step-row">
+              <span class="step-label">Building rescue plan</span>
+              <span class="step-state">waiting</span>
+            </div>
+            <p class="step-hint">AI prioritizes, explains, and writes developer tasks</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- State 3: results / rescue plan (prd.md > Screens and Layout) -->
+    <!-- ============================================================ -->
+    <section id="screen-results" class="hidden">
+      <!-- Scanned URL + scanner-side summary (count = unique scanner findings) -->
+      <p class="font-mono text-xs uppercase tracking-wider text-neutral-500">Scan summary &middot; scanner</p>
+      <h1 class="mt-4 break-all text-2xl font-semibold tracking-tight text-neutral-50" id="results-url"></h1>
+      <p id="results-redirect" class="mt-1 hidden font-mono text-xs text-neutral-500"></p>
+      <div id="scan-facts" class="facts-row"></div>
+
+      <!-- Partial-scan warning: missing checks are never dressed up as passed -->
+      <div id="partial-warning" class="panel panel-warning mt-6 hidden" role="status">
+        <p class="micro-label micro-label-accent">Partial scan</p>
+        <p class="mt-2 text-sm text-neutral-200">
+          Some checks could not run, so the rescue plan is based on incomplete evidence.
+          Unavailable checks are listed below and are never reported as passed.
+        </p>
+        <ul id="partial-list" class="mt-2 flex flex-col gap-1"></ul>
+      </div>
+
+      <!-- AI failure state: scan results kept, honest failure, retry re-calls /api/plan only -->
+      <div id="ai-failure" class="panel mt-6 hidden" role="status">
+        <p class="micro-label">Rescue plan failed</p>
+        <p class="mt-2 text-sm text-neutral-200">
+          The rescue-plan step could not be completed &mdash; nothing was invented. Your scan
+          results are kept below, exactly as the scanner reported them.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <button
+            id="retry-plan"
+            type="button"
+            class="rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-neutral-950 transition-colors hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Retry rescue plan
+          </button>
+          <button
+            id="start-over"
+            type="button"
+            class="rounded-md border border-neutral-700 px-5 py-2 text-sm text-neutral-300 transition-colors hover:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:ring-offset-2 focus:ring-offset-neutral-950"
+          >
+            Enter another URL
+          </button>
+        </div>
+        <p id="retry-status" aria-live="polite" class="mt-3 text-xs text-neutral-500"></p>
+      </div>
+
+      <!-- Plan summary (AI-generated) — shown only when a validated plan exists -->
+      <div id="plan-summary-block" class="mt-6 hidden">
+        <p class="micro-label micro-label-accent">Rescue plan &middot; AI</p>
+        <p id="plan-summary" class="mt-2 text-neutral-200"></p>
+      </div>
+
+      <!-- Scanner findings without a plan (AI failed): source of truth, not yet prioritized -->
+      <div id="findings-raw" class="mt-8 hidden">
+        <p class="micro-label">Scan findings &middot; scanner &mdash; not yet prioritized</p>
+        <div id="findings-raw-list" class="mt-3 flex flex-col gap-3"></div>
+      </div>
+
+      <!-- Three priority sections (empty sections say so — prd.md) -->
+      <div id="plan-sections" class="mt-8 hidden">
+        <section class="priority-section" id="section-fix_now">
+          <div class="priority-head">
+            <h2 class="priority-title">Fix now</h2>
+            <span class="priority-count" id="count-fix_now">0</span>
+          </div>
+          <div class="priority-list" id="list-fix_now"></div>
+          <p class="empty-note" id="empty-fix_now">Nothing is currently assigned to this priority.</p>
+        </section>
+
+        <section class="priority-section" id="section-fix_next">
+          <div class="priority-head">
+            <h2 class="priority-title">Fix next</h2>
+            <span class="priority-count" id="count-fix_next">0</span>
+          </div>
+          <div class="priority-list" id="list-fix_next"></div>
+          <p class="empty-note" id="empty-fix_next">Nothing is currently assigned to this priority.</p>
+        </section>
+
+        <section class="priority-section" id="section-improve_later">
+          <div class="priority-head">
+            <h2 class="priority-title">Improve later</h2>
+            <span class="priority-count" id="count-improve_later">0</span>
+          </div>
+          <div class="priority-list" id="list-improve_later"></div>
+          <p class="empty-note" id="empty-improve_later">Nothing is currently assigned to this priority.</p>
+        </section>
+      </div>
+    </section>
+
   </main>
 
   <script src="/app.js" defer></script>

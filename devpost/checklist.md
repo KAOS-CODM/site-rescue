@@ -40,7 +40,7 @@ Build mode: fast (recorded at Slice 1 approval — concise narration and verific
   Learner check: Add your free Gemini key to `.env`, run the provided curl against `/api/plan` with sample findings, and confirm the plan JSON prioritizes only the findings you sent. (You'll also confirm your live free-tier quota here — the build-day check from the spec.)
   Commit: `Add Gemini adapter with strict plan validation`
 
-- [ ] **4. Full journey: scanning state → rescue plan results**
+- [x] **4. Full journey: scanning state → rescue plan results**
   Becomes usable: the complete PoC happy path on screen — type a real URL → honest step sequence → rescue plan with summary count, three priority sections, and expandable finding cards. This is the demo moment: raw evidence → prioritized plan → developer tasks.
   Why now: the kernel halves (scanner, AI) were proven separately; this joins them into one product the moment feedback can still shape the remaining polish.
   PRD ref: `prd.md > The Core Journey` (steps 2–7), `prd.md > Screens and Layout` (scanning + results), `prd.md > Finding cards`, `prd.md > Rescue plan results`

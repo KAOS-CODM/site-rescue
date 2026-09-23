@@ -1,9 +1,316 @@
 @import "tailwindcss";
 
-/* Site Rescue — control-room validation state (spec > Look and Feel).
-   Defined here so the error highlight doesn't depend on dynamically
-   assembled utility classes. */
+/* Site Rescue — control-room states & dynamic components (spec > Look and Feel).
+   Defined here so state- and data-driven elements (validation highlight, journey
+   steps, priority sections, finding cards) don't depend on dynamically
+   assembled utility classes. One accent only (amber); priorities differ by
+   structure/emphasis, never by a rainbow of status colors. */
+
+/* ---------------- validation (slice 1) ---------------- */
 .input-error {
   border-color: rgb(248 113 113 / 0.7);
   box-shadow: 0 0 0 2px rgb(248 113 113 / 0.35);
+}
+
+/* ---------------- scanning steps (honest request phases) ---------------- */
+#step-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+}
+.step {
+  display: flex;
+  gap: calc(var(--spacing) * 3);
+  align-items: flex-start;
+  padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4);
+  border: 1px solid var(--color-neutral-800);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-neutral-900) 60%, transparent);
+}
+.step-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.45rem;
+  border-radius: 9999px;
+  background: var(--color-neutral-600);
+}
+.step-text {
+  min-width: 0;
+}
+.step-row {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(var(--spacing) * 3);
+}
+.step-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-neutral-500);
+}
+.step-state {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
+.step-hint {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--color-neutral-500);
+}
+.step[data-state="active"] {
+  border-color: color-mix(in srgb, var(--color-amber-500) 45%, transparent);
+}
+.step[data-state="active"] .step-dot {
+  background: var(--color-amber-500);
+  animation: step-pulse 1.2s ease-in-out infinite;
+}
+.step[data-state="active"] .step-label,
+.step[data-state="active"] .step-state {
+  color: var(--color-amber-500);
+}
+.step[data-state="done"] .step-dot {
+  background: var(--color-neutral-300);
+}
+.step[data-state="done"] .step-label {
+  color: var(--color-neutral-300);
+}
+.step[data-state="done"] .step-state {
+  color: var(--color-neutral-500);
+}
+@keyframes step-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------------- result-screen panels ---------------- */
+.panel {
+  padding: calc(var(--spacing) * 5) calc(var(--spacing) * 6);
+  border: 1px solid var(--color-neutral-800);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-neutral-900) 60%, transparent);
+}
+.panel-warning {
+  border-color: color-mix(in srgb, var(--color-amber-500) 55%, transparent);
+}
+#partial-list li {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-400);
+}
+.facts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--spacing) * 1) calc(var(--spacing) * 4);
+  margin-top: calc(var(--spacing) * 2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-400);
+}
+
+/* ---------------- micro labels (scanner vs AI distinction) ---------------- */
+.micro-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-neutral-500);
+}
+.micro-label-accent {
+  color: var(--color-amber-500);
+}
+
+/* ---------------- priority sections ---------------- */
+.priority-section {
+  padding: calc(var(--spacing) * 4) calc(var(--spacing) * 5);
+  border: 1px solid var(--color-neutral-800);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-neutral-900) 60%, transparent);
+}
+#section-fix_now {
+  border-left-color: var(--color-amber-500);
+}
+#section-fix_next {
+  border-left-color: color-mix(in srgb, var(--color-amber-500) 45%, transparent);
+}
+#section-improve_later {
+  border-left-color: var(--color-neutral-700);
+}
+.priority-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--spacing) * 3);
+}
+.priority-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-400);
+}
+#section-fix_now .priority-title {
+  color: var(--color-amber-500);
+}
+#section-fix_next .priority-title {
+  color: color-mix(in srgb, var(--color-amber-500) 70%, transparent);
+}
+.priority-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-500);
+  border: 1px solid var(--color-neutral-800);
+  border-radius: 0.25rem;
+  padding: 0 calc(var(--spacing) * 1.5);
+}
+.priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+  margin-top: calc(var(--spacing) * 3);
+}
+.empty-note {
+  margin-top: calc(var(--spacing) * 3);
+  font-size: var(--text-sm);
+  color: var(--color-neutral-500);
+}
+
+/* ---------------- finding cards (compact, expandable) ---------------- */
+.finding-card {
+  border: 1px solid var(--color-neutral-800);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-neutral-950) 70%, transparent);
+}
+.finding-card[open] {
+  border-color: var(--color-neutral-700);
+}
+.card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--spacing) * 3);
+  padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+  cursor: pointer;
+  list-style: none;
+}
+.card-summary::-webkit-details-marker {
+  display: none;
+}
+.card-summary::after {
+  content: "+";
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--color-neutral-500);
+}
+.finding-card[open] > .card-summary::after {
+  content: "\2013";
+}
+.card-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-neutral-100);
+}
+.card-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-500);
+  word-break: break-all;
+}
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 4);
+  padding: 0 calc(var(--spacing) * 3) calc(var(--spacing) * 3);
+  border-top: 1px solid var(--color-neutral-800);
+  padding-top: calc(var(--spacing) * 3);
+}
+.card-block {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1.5);
+}
+.card-note {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-300);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.field-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-neutral-500);
+}
+.field-text {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-200);
+}
+.criteria-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.criteria-list li {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-200);
+  padding-left: 1.25rem;
+  position: relative;
+}
+.criteria-list li::before {
+  content: "\2610";
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono);
+  color: var(--color-amber-500);
+}
+.evidence-pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--color-neutral-300);
+  background: color-mix(in srgb, var(--color-neutral-950) 85%, transparent);
+  border: 1px solid var(--color-neutral-800);
+  border-radius: 0.25rem;
+  padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+/* ---------------- chips (priority labels on cards) ---------------- */
+.chip {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px calc(var(--spacing) * 1.5);
+  border: 1px solid;
+  border-radius: 0.25rem;
+  flex: none;
+}
+.chip-fix_now {
+  color: var(--color-amber-500);
+  border-color: color-mix(in srgb, var(--color-amber-500) 55%, transparent);
+  background: color-mix(in srgb, var(--color-amber-500) 10%, transparent);
+}
+.chip-fix_next {
+  color: color-mix(in srgb, var(--color-amber-500) 75%, transparent);
+  border-color: color-mix(in srgb, var(--color-amber-500) 35%, transparent);
+}
+.chip-improve_later,
+.chip-neutral {
+  color: var(--color-neutral-400);
+  border-color: var(--color-neutral-700);
 }
