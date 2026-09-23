@@ -30,7 +30,7 @@ Build mode: fast (recorded at Slice 1 approval — concise narration and verific
   Learner check: Run the provided curl command against a real site you know, read one finding's `evidence` block, and tell me whether it actually proves the problem it claims.
   Commit: `Add SSRF-guarded scanner with 15 evidence-backed checks`
 
-- [ ] **3. AI adapter and /api/plan with strict validation**
+- [x] **3. AI adapter and /api/plan with strict validation**
   Becomes usable: `POST /api/plan` converts scanner findings into a validated rescue plan (summary + Fix now / Fix next / Improve later + developer tasks). The complete backend pipeline — evidence in, decisions out — works over HTTP.
   Why now: completes the kernel server-side (the AI-decisions half) before any results-screen UI, so the UI in slice 4 lands on a working pipeline. Includes the pending **Gemini structured-output verification** (official docs → exact request field format) before the adapter is written.
   PRD ref: `prd.md > AI rescue-plan layer`, `prd.md > States and Boundaries` (AI step fails → findings kept, retryable)
