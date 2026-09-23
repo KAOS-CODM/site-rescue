@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+
+# Personal learning context stays out of commits by default
+/devpost/learner-profile.md
+
+node_modules/

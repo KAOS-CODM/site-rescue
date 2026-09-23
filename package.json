@@ -1,0 +1,20 @@
+{
+  "name": "site-rescue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paste a website URL, get an evidence-backed rescue plan: what to fix, why it matters, in what order.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "build:css": "npx @tailwindcss/cli -i ./src/styles/input.css -o ./public/styles.css",
+    "watch:css": "npx @tailwindcss/cli -i ./src/styles/input.css -o ./public/styles.css --watch"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}
