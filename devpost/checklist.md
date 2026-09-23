@@ -60,7 +60,7 @@ Build mode: fast (recorded at Slice 1 approval — concise narration and verific
   Learner check: Deliberately break it — bad URL, a dead host, then remove your key and retry the plan step — and confirm each screen tells the truth and offers one clear next action.
   Commit: `Handle all failure states with honest recovery`
 
-- [ ] **6. README and reproduction pass**
+- [x] **6. README and reproduction pass**
   Becomes usable: a stranger can clone the repo, follow the README (install → `.env` → start → open), and run Site Rescue — the public-repo requirement of the submission, and the final integrated check.
   Why now: last slice, because a reproduction pass is only meaningful once every behavior it documents exists.
   PRD ref: `prd.md > What We're Building` (reproducible locally via setup instructions)
