@@ -6,7 +6,7 @@ status: approved
 
 # Build Checklist
 
-Build mode: [learn or fast — record once chosen; carry forward on resume]
+Build mode: fast (recorded at Slice 1 approval — concise narration and verification, pauses at planned checkpoints)
 
 ## Slices
 
@@ -20,7 +20,7 @@ Build mode: [learn or fast — record once chosen; carry forward on resume]
   Learner check: Open http://localhost:3000 — does the start screen match the control-room picture (and do you approve the amber accent)? Submit an empty/garbage URL — you should see the inline highlight and message, with no scan starting.
   Commit: `Add project scaffold and control-room start screen`
 
-- [ ] **2. Scanner: SSRF-guarded fetch, parse, and 15 checks**
+- [x] **2. Scanner: SSRF-guarded fetch, parse, and 15 checks**
   Becomes usable: `POST /api/scan` returns real, evidence-backed findings (stable type IDs) for any public URL — and refuses private/internal targets before connecting. The scanner-as-source-of-truth half of the kernel, proven over HTTP.
   Why now: risk-first — manual redirect validation and SSRF rules are the trickiest logic in the spec; finding problems now is cheap. Also the kernel's evidence half, which must exist before any AI sees findings.
   PRD ref: `prd.md > Starting a scan` (criteria 3), `prd.md > Rescue plan results` (findings-are-real criterion), `prd.md > States and Boundaries` (invalid / unreachable / partial)
