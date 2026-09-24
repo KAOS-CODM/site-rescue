@@ -7,15 +7,15 @@ Paste a website URL, get an evidence-backed rescue plan: what the scan found, wh
 Site Rescue is two small programs in one:
 
 - **The scanner — source of truth.** A single-page fetch (HTML + headers) behind strict SSRF guards, `robots.txt` and `/favicon.ico` probes, and **15 fixed checks**. Every finding carries a stable type ID (`seo.meta_description.missing`, `accessibility.link_text.generic`, …) and the structured evidence that proves it. The scanner only reports what it actually observed.
-- **The AI decision layer.** Sends *only* the scanner's findings to Gemini Flash (no tools, no browsing) to explain, prioritize (**Fix now / Fix next / Improve later**), and write developer tasks. The server validates every response: a plan that references any finding the scanner didn't produce — or drops/duplicates one — is rejected outright.
+- **The AI decision layer.** Sends *only* the scanner's findings to an OpenAI-compatible model via **OpenRouter** (no tools, no browsing) to explain, prioritize (**Fix now / Fix next / Improve later**), and write developer tasks. The server validates every response: a plan that references any finding the scanner didn't produce — or drops/duplicates one — is rejected outright.
 
 If the AI step fails (free-tier rate limit, provider outage), the scan results stay on screen and **Retry rescue plan** re-runs only the plan step — the site is never re-scanned, and no plan is ever fabricated.
 
 ## Prerequisites
 
 - **Node.js 20+** (developed and verified on Node 22)
-- **Network access** — scanning fetches real public sites; the plan step calls the Gemini API
-- **A free Gemini API key** — [get one at AI Studio](https://aistudio.google.com/apikey) (free tier, no card needed)
+- **Network access** — scanning fetches real public sites; the plan step calls OpenRouter
+- **An OpenRouter API key** — [get one at openrouter.ai/keys](https://openrouter.ai/keys) (the default model is a free `:free` variant)
 
 ## Quick start
 
@@ -50,9 +50,10 @@ Honesty rules are product requirements: partial scans (a probe couldn't run) are
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `AI_BASE_URL` | *(empty → Gemini v1beta)* | AI endpoint — leave empty for the default provider |
+| `AI_PROVIDER` | `openrouter` | must be `openrouter` or empty — anything else fails honestly |
+| `AI_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible chat-completions endpoint |
 | `AI_API_KEY` | *(your key)* | required only for the rescue-plan step |
-| `AI_MODEL` | `gemini-3.8-flash` | model with JSON-schema structured output |
+| `AI_MODEL` | `inclusionai/ling-3.0-flash-fin:free` | free chat model served via Novita |
 
 ## HTTP API
 
@@ -78,4 +79,4 @@ No database, accounts, scan history, crawling, or headless browser — one page,
 
 ---
 
-Docs: [Gemini API](https://ai.google.dev/gemini-api/docs) · [Structured outputs](https://ai.google.dev/gemini-api/docs/structured-output)
+Docs: [OpenRouter API](https://openrouter.ai/docs)
