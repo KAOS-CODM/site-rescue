@@ -5,6 +5,10 @@ export const TITLE_MAX_LENGTH = 60;      // seo.title.too_long: trimmed length >
 export const TTFB_THRESHOLD_MS = 3000;   // perf.slow_response: headers received > 3.0s
 export const REQUEST_TIMEOUT_MS = 10000; // spec: 10s fetch timeout (page and probes)
 
+// Bounded same-origin crawl (Final Review revision).
+export const MAX_CRAWLED_PAGES = 10;            // requested pages per scan INCLUDING the seed (hard max)
+export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024; // 2 MB guard: oversized page = failed fetch, not parsed content
+
 // accessibility.link_text.generic: fixed list — no fuzzy guessing.
 export const GENERIC_LINK_PHRASES = [
   'click here',

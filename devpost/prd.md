@@ -15,8 +15,8 @@ Source: `scope.md > The Core Loop`, `What "Working" Looks Like`.
 
 1. The user opens the locally running Site Rescue and lands on the start screen: small header (product name + tagline "Find what's broken. Fix what matters."), headline, a short explanation of what Site Rescue does, a prominent URL input with a **Scan website** button, and a small Scan → Prioritize → Fix hint. Nothing else.
 2. They paste a public website URL and click **Scan website**. (Empty or invalid input: they stay on the start screen with the input highlighted and a short message that a valid public URL is required — no scan starts.)
-3. The screen transitions to a focused scanning state: the URL being analyzed and an honest step sequence — *Scanning website → Analyzing findings → Building rescue plan* — with no fake precise percentages.
-4. The scan finishes and the results screen becomes the main **rescue plan**: the scanned URL and a short summary including how many findings were identified — the count refers to **unique findings produced by the scanner**, not AI-generated recommendations (clarified by the learner).
+3. The screen transitions to a focused scanning state: the URL being analyzed, an honest step sequence — *Scanning website → Analyzing findings → Building rescue plan* — and the scanner's factual crawl progress (pages scanned · URLs discovered · the 10-page limit · the page currently being fetched). Real counters only — no fake precise percentages.
+4. The scan finishes and the results screen becomes the main **rescue plan**: the scanned URL and a short scanner summary — findings identified, pages scanned — where the finding count refers to **unique findings produced by the scanner**, not AI-generated recommendations (clarified by the learner).
 5. Findings are grouped into three sections: **Fix now**, **Fix next**, **Improve later** — most important in Fix now.
 6. Each finding is a card separating the problem from the action: short problem title, priority, affected URL / scan evidence, plain-English explanation, why it matters, a concrete developer task, and enough technical evidence for a developer to trace where it came from. Cards scan quickly; extra detail expands on demand — no wall of text.
 7. The screen answers three questions immediately: *What did the scan find? What should I fix first? What exactly should I do about it?*
@@ -29,8 +29,8 @@ Failure branches (step 2/3/4) are specified under States and Boundaries.
 One page with three states — no navigation, no accounts, no other surfaces.
 
 1. **Start screen** — top-to-bottom: header (name + tagline), headline ("Turn a website audit into a rescue plan" character), short explanation ("paste a URL → scan → real issues → prioritized list of what to fix next"), prominent URL input + **Scan website** button (input makes clear a *public* website URL is needed), small Scan → Prioritize → Fix hint. Deliberately empty of statistics, settings, navigation, and accounts: an entrance to a focused tool, not a marketing site.
-2. **Scanning state** — replaces the main content: the URL under analysis + step sequence (*Scanning website → Analyzing findings → Building rescue plan*). Communicates activity honestly without claiming measurable progress.
-3. **Results / rescue plan screen** — top: scanned URL + short scan summary (finding count). Below: the three priority sections stacked, each containing finding cards; empty sections state that nothing is currently assigned to that priority rather than showing filler.
+2. **Scanning state** — replaces the main content: the URL under analysis, the step sequence (*Scanning website → Analyzing findings → Building rescue plan*), and the scanner's factual crawl progress (pages scanned, URLs discovered, the page limit, the page currently being fetched). Communicates activity with real counters only — never invented percentages or estimated completion times.
+3. **Results / rescue plan screen** — top: scanned URL + short scanner summary (finding count, pages scanned) + **Rescan this site** / **New scan** actions that work without a browser refresh. Below: the three priority sections stacked, each containing finding cards; empty sections state that nothing is currently assigned to that priority rather than showing filler.
 
 Movement between screens is state-driven by the user's actions (submit URL → scanning → results; errors return them to the input or offer retry).
 
@@ -59,7 +59,9 @@ The user enters a URL and starts the scan from the start screen.
 
 - [ ] Scanning state shows the URL being analyzed and the step sequence *Scanning website → Analyzing findings → Building rescue plan*.
 - [ ] Progress presentation is honest — no invented precise percentages.
-- [ ] On success, the results screen appears with the scanned URL and a summary including the number of findings identified.
+- [ ] Crawl progress comes from the scanner's stream as factual counts only (pages scanned, URLs discovered, the 10-page limit, the page being fetched) — never estimates or fabricated percentages.
+- [ ] The crawl stays on the submitted site's exact origin: robots.txt-disallowed, off-origin, duplicate, and failed URLs never count against the 10-page budget; URLs skipped by policy are listed separately on the results screen.
+- [ ] On success, the results screen appears with the scanned URL and a summary including the number of findings identified and the number of pages scanned.
 
 ### Rescue plan results
 
@@ -67,6 +69,9 @@ The user enters a URL and starts the scan from the start screen.
 - [ ] A section with no findings says nothing is currently assigned to that priority — never fabricated filler.
 - [ ] The screen answers all three questions at a glance: what did the scan find, what should I fix first, what exactly should I do about it.
 - [ ] Findings are actual observations from scanning the site, not canned data — the scanner's evidence is the source of truth for every finding.
+- [ ] Each finding card shows the **page URL** that produced its evidence (page-level attribution from the scanner, not the AI).
+- [ ] Discovered pages that failed to fetch are listed in the partial-scan warning with their real reason — never fabricated as findings, never silently dropped.
+- [ ] **Rescan this site** re-runs the same URL from scratch and **New scan** returns to the start screen — both without a browser refresh.
 
 ### Finding cards
 
@@ -94,7 +99,7 @@ The learner's general rule: **never fabricate results, never silently fail, alwa
 - **First use** — start screen exactly as described; nothing to load, no onboarding.
 - **Empty or invalid URL** — no scan starts; stay on the start screen, highlight the input, short message that a valid public website URL is required.
 - **Valid URL but website unreachable** — scan stops; clear error state explaining Site Rescue could not access the website; user can return to the input and try another site.
-- **Blocked / timeout / partial load** — be honest. If enough evidence was collected, show a partial-scan warning and clearly mark that the rescue plan is based on incomplete evidence. Missing information is never presented as successfully checked. If not enough evidence, treat as a failure with a clear next action.
+- **Blocked / timeout / partial load** — be honest. If enough evidence was collected, show a partial-scan warning and clearly mark that the rescue plan is based on incomplete evidence. Missing information is never presented as successfully checked. If not enough evidence, treat as a failure with a clear next action. During the crawl this applies per page: a discovered page that fails (network, timeout, oversized response) is listed in the warning with the real reason. URLs skipped by *policy* (robots.txt disallow, off-origin boundary) are listed separately — policy, not missing evidence, so they never mark the scan partial.
 - **Unexpected internal error** — simple message that the scan could not be completed, with the option to try again.
 - **AI step fails after a successful scan** — do not lose the scan results: show the collected findings, explain the rescue-plan step could not be completed, and offer a retry of the AI step.
 - **AI provider/model** — deliberately unspecified at the PRD level (clarified by the learner); the choice belongs to `4-spec`, based on what is practical for the hackathon.
@@ -119,12 +124,14 @@ Everything the proof of concept must do to be complete:
 - Start screen that gets a user from open → URL entered immediately.
 - URL validation with clear inline feedback.
 - An honest, staged scanning state for a real public URL.
-- A real scan that produces evidence-backed findings across the named categories (SEO, technical, performance, UX, accessibility, basic structure) — a focused small set of checks, not exhaustive.
+- A real scan that produces evidence-backed findings across the named categories (SEO, technical, performance, UX, accessibility, basic structure) — a focused small set of checks (16 conditions per the spec), not exhaustive — covering the seed page plus up to 10 same-origin pages, with each finding attributed to the page that produced it and HTTP 4xx/5xx responses reported as findings.
 - An AI step that turns those verified findings into explanations, priorities, and developer tasks.
 - The rescue-plan results screen: summary + three priority sections + expandable finding cards with all fields specified above.
 - The full failure handling listed under States and Boundaries.
 - The specified control-room look and feel.
 - Runs locally; reproducible by another person from the public repository's setup instructions.
+
+*Delivery-layer note (added at Final Review):* the app is also installable as a PWA (manifest, service worker, icons) — this changes how the PoC is delivered, not what it does: no features added to the boundary above, and scans still always require network access.
 
 ## Deferred From the POC
 

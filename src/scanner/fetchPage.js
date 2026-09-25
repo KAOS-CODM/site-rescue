@@ -10,17 +10,20 @@ import dns from 'node:dns/promises';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
-import { REQUEST_TIMEOUT_MS } from '../checkConfig.js';
+import { REQUEST_TIMEOUT_MS, MAX_RESPONSE_BYTES } from '../checkConfig.js';
 
 const MAX_REDIRECTS = 5; // derived: loop guard (spec does not prescribe a limit)
 
 const USER_AGENT = 'SiteRescue/0.1 (+local proof-of-concept scanner)';
 
-/** Errors that map to the API contract's error codes. */
+/** Errors that map to the API contract's error codes
+ *  ('invalid_url' | 'unreachable'), plus 'off_origin_redirect' which is
+ *  crawl-internal only (refusing a redirect that would leave the scanned
+ *  origin — never reaches the API error mapping). */
 export class ScanError extends Error {
   constructor(message, code) {
     super(message);
-    this.code = code; // 'invalid_url' | 'unreachable'
+    this.code = code;
   }
 }
 
@@ -189,8 +192,25 @@ function requestOnce(target, timeoutMs) {
         }
 
         const chunks = [];
-        res.on('data', (chunk) => chunks.push(chunk));
+        let bytes = 0;
+        let tooLarge = false;
+        res.on('data', (chunk) => {
+          if (tooLarge) return;
+          bytes += chunk.length;
+          if (bytes > MAX_RESPONSE_BYTES) {
+            // 2 MB guard: oversized response is a FAILED fetch with a clear
+            // reason — never parsed as content, never a source of findings.
+            tooLarge = true;
+            const err = new ScanError('The page response was larger than the 2 MB limit.', 'unreachable');
+            clearTimeout(timer);
+            req.destroy(err);
+            reject(err);
+            return;
+          }
+          chunks.push(chunk);
+        });
         res.on('end', () => {
+          if (tooLarge) return;
           clearTimeout(timer);
           resolve({
             statusCode,
@@ -222,9 +242,14 @@ function requestOnce(target, timeoutMs) {
 /**
  * Fetch a URL under full SSRF rules: validate → connect pinned → follow up to
  * MAX_REDIRECTS redirects with the same validation on every hop.
+ * @param originLimit when set (bounded crawl only), a redirect hop that would
+ *        leave this EXACT origin is refused BEFORE any off-origin request —
+ *        no external-domain crawling. Every hop we do take still passes the
+ *        unchanged per-hop SSRF validation. The seed fetch never sets it
+ *        (existing seed redirect behavior preserved).
  * Returns { finalUrl, status, headers, body, ttfbMs, redirectChain }.
  */
-export async function fetchSafe(target, timeoutMs = REQUEST_TIMEOUT_MS) {
+export async function fetchSafe(target, timeoutMs = REQUEST_TIMEOUT_MS, originLimit = null) {
   const redirectChain = [];
   let current = target;
 
@@ -240,6 +265,13 @@ export async function fetchSafe(target, timeoutMs = REQUEST_TIMEOUT_MS) {
         nextUrl = new URL(result.redirect, current.url);
       } catch {
         throw new ScanError('The website sent an invalid redirect.', 'unreachable');
+      }
+      // Bounded-crawl origin gate: refuse BEFORE requesting off-origin.
+      if (originLimit !== null && nextUrl.origin !== originLimit) {
+        throw new ScanError(
+          `The page redirected outside the scanned origin (${originLimit}); it was not crawled.`,
+          'off_origin_redirect',
+        );
       }
       // Revalidate EVERY redirect destination (scheme + resolve + non-public).
       const nextTarget = await validateTarget(nextUrl.href);
@@ -274,4 +306,30 @@ export async function probePath(originUrl, path) {
   } catch (err) {
     return { checked: false, reason: err.message || 'probe failed' };
   }
+}
+
+/* ---------------- content-type awareness (content-aware scanning revision) - */
+
+/** The response's Content-Type media type (parameters stripped, lowercased),
+ *  or null when the header is absent or empty. */
+export function responseContentType(page) {
+  const raw = page?.headers?.['content-type'];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== 'string' || !value.trim()) return null;
+  return value.split(';')[0].trim().toLowerCase();
+}
+
+/**
+ * True when the fetched response IS an HTML page — the ONLY case where the
+ * HTML scanner (SEO/accessibility checks AND link discovery) may run on it.
+ * Content-Type is authoritative when present: only text/html and
+ * application/xhtml+xml qualify, so PDFs, images, CSS, JS, fonts, archives…
+ * never receive HTML checks. When the header is absent entirely, fall back to
+ * an HTML-looking body — a PDF/image/binary payload never qualifies.
+ */
+export function isHtmlResponse(page) {
+  const mime = responseContentType(page);
+  if (mime !== null) return mime === 'text/html' || mime === 'application/xhtml+xml';
+  const head = String(page?.body ?? '').slice(0, 1024).toLowerCase();
+  return head.includes('<!doctype html') || head.includes('<html');
 }

@@ -2,11 +2,11 @@
 
 **Find what's broken. Fix what matters.**
 
-Paste a website URL, get an evidence-backed rescue plan: what the scan found, what to fix first, and a concrete developer task for every issue — one page, end to end.
+Paste a website URL, get an evidence-backed rescue plan: what the scan found across the site (up to 10 of its own pages), what to fix first, and a concrete developer task for every issue — end to end.
 
 Site Rescue is two small programs in one:
 
-- **The scanner — source of truth.** A single-page fetch (HTML + headers) behind strict SSRF guards, `robots.txt` and `/favicon.ico` probes, and **15 fixed checks**. Every finding carries a stable type ID (`seo.meta_description.missing`, `accessibility.link_text.generic`, …) and the structured evidence that proves it. The scanner only reports what it actually observed.
+- **The scanner — source of truth.** A bounded same-origin crawl — the seed page plus up to **10 pages per scan** (robots.txt honored, 2 MB response cap, loops/duplicates prevented) behind strict SSRF guards, `robots.txt` and `/favicon.ico` probes, and **16 fixed checks** (including HTTP 4xx/5xx status findings). Every finding carries a stable type ID (`seo.meta_description.missing`, `accessibility.link_text.generic`, …), the structured evidence that proves it, and the **page URL** that produced it. The scanner only reports what it actually observed.
 - **The AI decision layer.** Sends *only* the scanner's findings to an OpenAI-compatible model via **OpenRouter** (no tools, no browsing) to explain, prioritize (**Fix now / Fix next / Improve later**), and write developer tasks. The server validates every response: a plan that references any finding the scanner didn't produce — or drops/duplicates one — is rejected outright.
 
 If the AI step fails (free-tier rate limit, provider outage), the scan results stay on screen and **Retry rescue plan** re-runs only the plan step — the site is never re-scanned, and no plan is ever fabricated.
@@ -37,12 +37,20 @@ Scanning works even before the key is added; without a key only the rescue-plan 
 ## What you'll see
 
 1. **Start** — URL input with client-side validation; invalid input never fires a request.
-2. **Scanning** — three honest phases tied to the real requests: *Scanning website → Analyzing findings → Building rescue plan*. No invented percentages.
-3. **Results** — scanned URL, HTTP status, time-to-first-byte, and the count of **unique scanner findings**; the rescue plan in three priority sections. Each compact, expandable card keeps the layers apart:
-   - **Scanner** — what was observed, human-readable evidence ("Meta description element: not found"), with the full JSON evidence one expansion deeper;
+2. **Scanning** — three honest phases tied to the real requests: *Scanning website → Analyzing findings → Building rescue plan*, plus streamed crawl progress in real counters (*4 pages scanned · 8 URLs discovered · max 10 pages*). No invented percentages.
+3. **Results** — scanned URL, HTTP status, time-to-first-byte, unique scanner findings, and pages scanned — with **Rescan this site** / **New scan** actions (no refresh needed); the rescue plan in three priority sections. Each compact, expandable card keeps the layers apart:
+   - **Scanner** — what was observed, **which page it came from** (`pageUrl` badge), human-readable evidence ("Meta description element: not found"), with the full JSON evidence one expansion deeper;
    - **AI** — explanation, why it matters, developer task (+ acceptance criteria when provided).
 
-Honesty rules are product requirements: partial scans (a probe couldn't run) are labeled as partial — "not checked" is never shown as "passed"; a clean scan renders a deterministic empty plan **without calling the AI**.
+Honesty rules are product requirements: partial scans (a probe couldn't run, a discovered page couldn't be fetched) are labeled as partial with the real reason — "not checked" is never shown as "passed"; URLs skipped by robots.txt or the origin boundary are listed separately (policy, not missing evidence); a clean scan renders a deterministic empty plan **without calling the AI**.
+
+## Install as an app (PWA)
+
+Site Rescue is an installable Progressive Web App — the same web app, no separate mobile codebase:
+
+- **Install:** in Chrome/Edge, click the install icon in the address bar (or menu → *Install Site Rescue*); on mobile, *Add to Home screen*. It launches in its own window as **Site Rescue** with the app icon.
+- **Offline:** the app shell (start screen, styles, scripts, icons) is cached by a small service worker, so the app opens without network.
+- **Scans always need network.** The service worker never caches API responses — a scan or rescue-plan step attempted offline fails honestly with the normal error message. No stale or fabricated results, ever.
 
 ## Configuration
 
@@ -59,10 +67,11 @@ Honesty rules are product requirements: partial scans (a probe couldn't run) are
 
 | Endpoint | Body | Success | Errors |
 |---|---|---|---|
-| `POST /api/scan` | `{ url }` | `{ url, finalUrl, status, ttfbMs, findings[], unavailableChecks?, partial? }` | `400 invalid_url` · `502 unreachable` · `500 scan_failed` |
+| `POST /api/scan` | `{ url }` | streamed `text/event-stream`: `{type:'progress', …}` events → one `{type:'result', result:{ url, finalUrl, status, ttfbMs, findings[], unavailableChecks?, partial?, pages[], discovered, skipped[], crawlFailures[], limit }}` | pre-stream JSON: `400 invalid_url` · `502 unreachable` · `500 scan_failed` |
 | `POST /api/plan` | `{ findings }` | `{ summary, results[] }` | `400 invalid_request` · `502 ai_failed` |
 
 - Non-public URLs (localhost, private IP ranges, …) are rejected **before any request is attempted**, and every redirect hop is re-validated under the same rules.
+- The crawl stays on the seed's exact origin (no www/non-www mixing): robots.txt-disallowed, off-origin, duplicate, and failed URLs never count against the 10-page budget; failures and skips are listed in the result, never hidden.
 - Empty `findings` returns the deterministic empty plan — **no AI request is made**.
 
 ## Commands
@@ -75,7 +84,7 @@ Honesty rules are product requirements: partial scans (a probe couldn't run) are
 
 ## Scope (deliberately out)
 
-No database, accounts, scan history, crawling, or headless browser — one page, two requests, in-memory results (a refresh resets to the start screen). See [`devpost/prd.md`](devpost/prd.md) for the full product requirements and [`devpost/spec.md`](devpost/spec.md) for the technical design.
+No database, accounts, scan history, or headless browser — a deliberately bounded same-origin crawl (≤ 10 pages per scan), two requests with streamed progress, in-memory results (a refresh resets to the start screen). See [`devpost/prd.md`](devpost/prd.md) for the full product requirements and [`devpost/spec.md`](devpost/spec.md) for the technical design.
 
 ---
 

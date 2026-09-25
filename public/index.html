@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Site Rescue — Find what's broken. Fix what matters.</title>
   <meta name="description" content="Paste a website URL and Site Rescue will scan it, identify real issues, and turn those findings into a prioritized list of what to fix next.">
+
+  <!-- PWA: installability + mobile presentation (manifest > Web Application Manifest) -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="icon" type="image/png" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Site Rescue">
+
   <link href="/styles.css" rel="stylesheet">
 </head>
 <body class="min-h-screen bg-neutral-950 text-neutral-200 antialiased">
@@ -60,7 +71,7 @@
         </div>
         <p id="url-error" role="alert" class="mt-2 hidden text-sm text-red-400"></p>
         <p id="url-hint" class="mt-3 text-xs text-neutral-500">
-          Enter a <span class="text-neutral-300">public</span> website URL — Site Rescue scans one page at a time.
+          Enter a <span class="text-neutral-300">public</span> website URL — Site Rescue checks up to 10 pages of that site.
         </p>
       </form>
 
@@ -88,7 +99,7 @@
               <span class="step-label">Scanning website</span>
               <span class="step-state">waiting</span>
             </div>
-            <p class="step-hint">Fetching HTML, headers, robots.txt and favicon, then running the checks</p>
+            <p class="step-hint">Fetching headers, robots.txt and favicon, then checking up to 10 same-origin pages</p>
           </div>
         </li>
         <li class="step" data-step="2" data-state="pending">
@@ -112,6 +123,17 @@
           </div>
         </li>
       </ol>
+
+      <!-- Honest crawl progress: factual counts streamed by the scanner
+           (no fake percentages — prd.md > Scanning in progress). -->
+      <div id="scan-progress" class="mt-6 hidden" role="status" aria-live="polite">
+        <div class="panel">
+          <p class="micro-label">Crawl progress</p>
+          <p id="progress-counts" class="progress-counts"></p>
+          <p id="progress-fetching" class="progress-fetching hidden"></p>
+          <ul id="progress-list" class="progress-list"></ul>
+        </div>
+      </div>
     </section>
 
     <!-- ============================================================ -->
@@ -124,14 +146,43 @@
       <p id="results-redirect" class="mt-1 hidden font-mono text-xs text-neutral-500"></p>
       <div id="scan-facts" class="facts-row"></div>
 
+      <!-- Journey actions: re-run the same URL, or return to the start screen. -->
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button
+          id="rescan"
+          type="button"
+          class="rounded-md border border-neutral-700 px-5 py-2 text-sm text-neutral-300 transition-colors hover:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:ring-offset-2 focus:ring-offset-neutral-950"
+        >
+          Rescan this site
+        </button>
+        <button
+          id="new-scan"
+          type="button"
+          class="rounded-md border border-neutral-700 px-5 py-2 text-sm text-neutral-300 transition-colors hover:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:ring-offset-2 focus:ring-offset-neutral-950"
+        >
+          New scan
+        </button>
+      </div>
+
       <!-- Partial-scan warning: missing checks are never dressed up as passed -->
       <div id="partial-warning" class="panel panel-warning mt-6 hidden" role="status">
         <p class="micro-label micro-label-accent">Partial scan</p>
         <p class="mt-2 text-sm text-neutral-200">
-          Some checks could not run, so the rescue plan is based on incomplete evidence.
-          Unavailable checks are listed below and are never reported as passed.
+          Part of this scan could not be completed, so the rescue plan is based on
+          incomplete evidence. Everything affected is listed below and is never
+          reported as passed.
         </p>
         <ul id="partial-list" class="mt-2 flex flex-col gap-1"></ul>
+      </div>
+
+      <!-- Skipped URLs: policy, not missing evidence — shown separately. -->
+      <div id="skipped-panel" class="panel mt-6 hidden" role="status">
+        <p class="micro-label">Not crawled (by rule)</p>
+        <p class="mt-2 text-sm text-neutral-200">
+          These discovered URLs were deliberately not requested &mdash; robots.txt rules
+          or the same-origin boundary &mdash; so they never counted against the page limit.
+        </p>
+        <ul id="skipped-list" class="mt-2 flex flex-col gap-1"></ul>
       </div>
 
       <!-- AI failure state: scan results kept, honest failure, retry re-calls /api/plan only -->

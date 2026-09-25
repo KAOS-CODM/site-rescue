@@ -1,5 +1,5 @@
 // Stable finding type IDs — the complete and only scanner vocabulary.
-// 15 conditions, 15 stable types (spec.md > Scanner > checks table).
+// 16 conditions, 16 stable types (spec.md > Scanner > checks table).
 // The AI layer may only ever reference IDs from this list.
 
 export const FINDING_TYPES = Object.freeze([
@@ -18,20 +18,24 @@ export const FINDING_TYPES = Object.freeze([
   'technical.https.missing',
   'perf.slow_response',
   'seo.robots.signals',
+  'http.error_status',
 ]);
 
 /**
  * Finding factory (spec.md > Finding model).
  * One finding per fired condition per scan; instance ids are per-scan
- * (f_1, f_2, ...) while `type` stays stable across scans.
+ * (f_1, f_2, ...) while `type` stays stable across scans. One factory per
+ * scan keeps ids unique across crawled pages. Every finding carries
+ * `pageUrl` — the URL whose fetched content produced the evidence
+ * (page-level attribution, Final Review revision).
  */
 export function createFindingFactory() {
   let count = 0;
-  return function makeFinding(type, note, evidence) {
+  return function makeFinding(type, note, evidence, pageUrl) {
     if (!FINDING_TYPES.includes(type)) {
       throw new Error(`Unknown finding type: ${type}`);
     }
     count += 1;
-    return { id: `f_${count}`, type, note, evidence };
+    return { id: `f_${count}`, type, note, evidence, pageUrl: pageUrl ?? null };
   };
 }

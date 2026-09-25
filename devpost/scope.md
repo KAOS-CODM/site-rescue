@@ -24,7 +24,7 @@ Identity line against the learner's other project: *Site Scout finds and measure
 
 ## The Core Loop
 
-Open the app → paste a real public URL → start the scan → the app inspects that site and produces actual findings with evidence → AI turns the verified findings into the rescue plan → the screen shows findings grouped **Fix now / Fix next / Improve later**, each important one showing evidence, plain-English explanation, why it matters, priority, and a concrete developer task.
+Open the app → paste a real public URL → start the scan → the app inspects that site (its seed page plus up to 10 of its own pages) and produces actual findings with evidence → AI turns the verified findings into the rescue plan → the screen shows findings grouped **Fix now / Fix next / Improve later**, each important one showing evidence, plain-English explanation, why it matters, priority, and a concrete developer task.
 
 The user comes back because it answers the question audit tools leave open: *what should I fix next?*
 
@@ -41,8 +41,9 @@ Their stated learning goal: *"how to turn an idea into a clear technical plan be
 Open the locally running app, enter a real public website URL, run a scan, and watch the full transition: **raw website evidence → prioritized rescue plan → developer tasks**, end-to-end.
 
 - Real findings the app actually observed on that site (not canned data)
+- The crawl stays on that site's own pages: seed + up to **10 pages**, robots.txt honored, external links never followed — and progress while scanning is factual counters (pages scanned, URLs discovered), never invented percentages
 - Findings grouped into Fix now / Fix next / Improve later
-- Each important finding shows: scan evidence, plain-English explanation, why it matters, priority, and a concrete developer task with enough detail to act on
+- Each important finding shows: scan evidence, plain-English explanation, why it matters, priority, and a concrete developer task with enough detail to act on — plus **which page of the site produced that evidence**
 - The AI's plan is built from those verified findings — it doesn't invent website problems
 
 The "oh, that's cool" beat: the moment raw evidence turns into an ordered, actionable plan on screen. No deployment — a local app is fine as long as another person can follow setup instructions from the public repository and reproduce it. The demo video shows this flow in about a minute.
@@ -55,7 +56,9 @@ In, stated tightly:
 - Developer-first output per finding: evidence, plain-English explanation, why it matters, priority, concrete task
 - Three priority buckets: Fix now / Fix next / Improve later
 - A focused, small set of scan checks across the categories they named (SEO, technical, performance, UX, accessibility, basic structure) — enough to prove the flow, not exhaustive
+- A **bounded same-origin crawl**: seed URL + max 10 pages per scan under the same SSRF guards — robots.txt-disallowed, duplicate, external and failed URLs never consume the budget (skips and failures are disclosed, never hidden) — HTTP 4xx/5xx responses reported as factual findings, and every finding attributed to the page that produced it
 - Local run + reproducible setup from the public repo
+- Installable PWA packaging of the same app (manifest, service worker, icons) — a delivery layer added at Final Review; it adds no features and does not move this boundary (scans remain network-dependent)
 
 ## Later
 

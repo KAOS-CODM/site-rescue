@@ -3,8 +3,12 @@
 //
 // - State lives in memory only: refresh resets to the start screen.
 // - Phases reflect REAL request phases: step 1 active while /api/scan is in
-//   flight; steps 2+3 active while /api/plan is in flight. No percentages,
-//   no invented progress — the honesty rule (prd.md > Look and Feel).
+//   flight (including its streamed crawl progress); steps 2+3 active while
+//   /api/plan is in flight. No percentages, no invented progress — the
+//   honesty rule (prd.md > Look and Feel). Progress counts come straight
+//   from the scanner's stream: {type:'progress'} events, then exactly one
+//   terminal {type:'result'} event. Pre-stream failures keep the original
+//   JSON error contract (400 invalid_url / 502 unreachable).
 // - Scanner findings and the AI plan are kept distinct: findings[] is the
 //   source of truth, plan.results joins by findingId and only ever adds
 //   prioritization/explanation/tasks. On AI failure the findings are shown
@@ -13,6 +17,8 @@
 // - Evidence rendering is presentation-only: concise human-readable lines are
 //   derived from the scanner's structured evidence fields (never invented);
 //   the full scanner JSON always stays one expansion deeper.
+// - Every finding shows its pageUrl badge: which page of the site produced
+//   this evidence (page-level attribution, scanner-recorded).
 
 const form = document.getElementById('scan-form');
 const input = document.getElementById('url-input');
@@ -39,6 +45,10 @@ const resultsRedirect = document.getElementById('results-redirect');
 const scanFacts = document.getElementById('scan-facts');
 const partialWarning = document.getElementById('partial-warning');
 const partialList = document.getElementById('partial-list');
+const skippedPanel = document.getElementById('skipped-panel');
+const skippedList = document.getElementById('skipped-list');
+const rescanBtn = document.getElementById('rescan');
+const newScanBtn = document.getElementById('new-scan');
 const aiFailure = document.getElementById('ai-failure');
 const retryBtn = document.getElementById('retry-plan');
 const startOverBtn = document.getElementById('start-over');
@@ -48,6 +58,12 @@ const planSummary = document.getElementById('plan-summary');
 const findingsRaw = document.getElementById('findings-raw');
 const findingsRawList = document.getElementById('findings-raw-list');
 const planSections = document.getElementById('plan-sections');
+
+// Scanning-screen progress hooks (streamed crawl counts).
+const scanProgress = document.getElementById('scan-progress');
+const progressCounts = document.getElementById('progress-counts');
+const progressFetching = document.getElementById('progress-fetching');
+const progressList = document.getElementById('progress-list');
 
 const PRIORITIES = [
   { key: 'fix_now', chip: 'chip-fix_now', label: 'Fix now' },
@@ -131,6 +147,14 @@ function setSteps(states) {
   });
 }
 
+function resetProgress() {
+  scanProgress.classList.add('hidden');
+  progressCounts.textContent = '';
+  progressFetching.textContent = '';
+  progressFetching.classList.add('hidden');
+  progressList.replaceChildren();
+}
+
 function resetJourney() {
   scan = null;
   plan = null;
@@ -140,6 +164,7 @@ function resetJourney() {
   retryBtn.disabled = false;
   retryStatus.textContent = '';
   setSteps(['pending', 'pending', 'pending']);
+  resetProgress();
 }
 
 /* ---------------- API ---------------- */
@@ -173,6 +198,88 @@ async function postJson(pathname, body) {
   return data;
 }
 
+// POST /api/scan reads a streamed response: SSE-style `data: {json}\n\n`
+// events — factual progress ({type:'progress'}) while the bounded crawl runs,
+// then exactly ONE terminal event ({type:'result'} or {type:'error'}).
+// Pre-stream failures keep the original JSON error contract untouched.
+async function postScan(rawUrl, onProgress) {
+  let res;
+  try {
+    res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: rawUrl }),
+    });
+  } catch {
+    throw new RequestError(0, 'network_error');
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!res.ok || !contentType.includes('text/event-stream')) {
+    // Pre-stream JSON error (400 invalid_url / 502 unreachable / 500 …) —
+    // same handling as always: fixed client copy per error code.
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      // non-JSON body — handled below via status
+    }
+    throw new RequestError(res.status, data?.error);
+  }
+  if (!res.body) throw new RequestError(0, 'network_error');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result = null;
+
+  const handleLine = (line) => {
+    if (!line.startsWith('data: ')) return;
+    let event;
+    try {
+      event = JSON.parse(line.slice(6));
+    } catch {
+      return; // malformed event: ignored — never turns into a fabricated result
+    }
+    if (event.type === 'progress') {
+      if (onProgress) onProgress(event);
+    } else if (event.type === 'result') {
+      result = event.result;
+    } else if (event.type === 'error') {
+      throw new RequestError(500, event.error || 'scan_failed');
+    }
+  };
+
+  const handleChunk = (text) => {
+    buffer += text;
+    let idx;
+    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+      const block = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      for (const line of block.split('\n')) {
+        if (line) handleLine(line);
+      }
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    handleChunk(decoder.decode(value, { stream: true }));
+  }
+  handleChunk(decoder.decode()); // flush any trailing bytes
+  if (buffer.trim()) {
+    for (const line of buffer.split('\n')) {
+      if (line) handleLine(line);
+    }
+  }
+
+  // A stream that ends without a terminal result is a failed scan — we never
+  // invent one.
+  if (!result) throw new RequestError(0, 'network_error');
+  return result;
+}
+
 // Fixed client copy per error code — server/provider internals and API keys
 // are never shown to the user (prd.md > States and Boundaries).
 function scanErrorMessage(err) {
@@ -185,33 +292,23 @@ function scanErrorMessage(err) {
 
 /* ---------------- the journey ---------------- */
 
-form.addEventListener('submit', async (event) => {
-  // Always prevent the default navigation — nothing reloads.
-  event.preventDefault();
-
-  // Duplicate-submission guard: one journey at a time.
-  if (journeyActive) return;
-
-  const message = validateUrl(input.value);
-  if (message) {
-    showError(message);
-    return; // Stay on the start screen; no request of any kind is made.
-  }
-  clearError();
-
+// The full journey for one URL: streamed scan → plan. Everything that sets
+// journey state runs SYNCHRONOUSLY before the first await, so duplicate
+// submissions are guarded and the scanning screen/steps flip immediately.
+async function runJourney(rawUrl) {
   journeyActive = true;
   submitBtn.disabled = true;
   scan = null;
   plan = null;
+  resetProgress();
 
-  const rawUrl = input.value.trim();
   scanningUrl.textContent = rawUrl;
   showScreen('scanning');
   setSteps(['active', 'pending', 'pending']); // phase 1 = /api/scan in flight
 
   let scanRes;
   try {
-    scanRes = await postJson('/api/scan', { url: rawUrl });
+    scanRes = await postScan(rawUrl, renderProgress);
   } catch (err) {
     // Scan failed: return to the input with one clear next action.
     journeyActive = false;
@@ -231,6 +328,31 @@ form.addEventListener('submit', async (event) => {
 
   journeyActive = false;
   submitBtn.disabled = false;
+}
+
+form.addEventListener('submit', (event) => {
+  // Always prevent the default navigation — nothing reloads.
+  event.preventDefault();
+
+  // Duplicate-submission guard: one journey at a time.
+  if (journeyActive) return;
+
+  const message = validateUrl(input.value);
+  if (message) {
+    showError(message);
+    return; // Stay on the start screen; no request of any kind is made.
+  }
+  clearError();
+
+  return runJourney(input.value.trim());
+});
+
+// Rescan: re-run the same normalized URL (a fresh scan — findings and plan
+// are rebuilt from scratch, nothing is carried over).
+rescanBtn.addEventListener('click', () => {
+  if (journeyActive || !scan) return;
+  const url = scan.url;
+  return runJourney(url);
 });
 
 // Request the plan from the stored findings. Used by the initial journey AND
@@ -239,7 +361,12 @@ form.addEventListener('submit', async (event) => {
 // (no AI request is made server-side in that case).
 async function requestPlan() {
   try {
-    plan = await postJson('/api/plan', { findings: scan.findings });
+    // The page ledger rides along so the AI can describe the ACTUAL scope of
+    // a multi-page scan (findings are attributed per page via pageUrl).
+    plan = await postJson('/api/plan', {
+      findings: scan.findings,
+      pages: Array.isArray(scan.pages) ? scan.pages : [],
+    });
     setSteps(['done', 'done', 'done']);
   } catch {
     plan = null; // AI step failed: never fabricate a plan; findings stay intact
@@ -257,12 +384,16 @@ retryBtn.addEventListener('click', async () => {
   retryBtn.disabled = false;
 });
 
-startOverBtn.addEventListener('click', () => {
+// Shared "back to square one" path: full reset, start screen, focus input.
+function goToStart() {
   resetJourney();
   showScreen('start');
   clearError();
   input.focus();
-});
+}
+
+startOverBtn.addEventListener('click', goToStart);
+newScanBtn.addEventListener('click', goToStart);
 
 /* ---------------- rendering ---------------- */
 
@@ -271,6 +402,50 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+/* ---------------- crawl progress (streamed, factual only) ----------------
+   Every number rendered here is a real counter from the scanner's progress
+   event — no invented percentages, no derived estimates. */
+
+const PAGE_STATE_LABEL = {
+  seed: 'seed page',
+  scanned: 'scanned',
+  non_html: 'non-HTML resource',
+  failed: 'crawl failed',
+  skipped_robots: 'skipped (robots.txt)',
+  skipped_redirect: 'skipped (left origin)',
+};
+
+function progressRow(page) {
+  const state = String(page.state || '');
+  const label = PAGE_STATE_LABEL[state] || state || 'page';
+  const detail = state === 'seed' || state === 'scanned'
+    ? `HTTP ${page.status}`
+    : state === 'non_html'
+      // A fetched non-HTML resource: factual status + content type, never
+      // dressed up as a scanned HTML page.
+      ? `HTTP ${page.status}${page.contentType ? ` · ${page.contentType}` : ''}`
+      : (page.reason || '');
+  const url = String(page.url || '');
+  return el('li', 'progress-page', detail ? `${label} · ${detail} · ${url}` : `${label} · ${url}`);
+}
+
+function renderProgress(event) {
+  scanProgress.classList.remove('hidden');
+  const scanned = Number.isFinite(event.scanned) ? event.scanned : 0;
+  const discovered = Number.isFinite(event.discovered) ? event.discovered : 0;
+  const limit = Number.isFinite(event.limit) ? event.limit : 0;
+  progressCounts.textContent =
+    `${scanned} page${scanned === 1 ? '' : 's'} scanned · `
+    + `${discovered} URL${discovered === 1 ? '' : 's'} discovered · max ${limit} pages`;
+
+  const fetching = typeof event.fetching === 'string' ? event.fetching : '';
+  progressFetching.textContent = fetching ? `Fetching ${fetching}` : '';
+  progressFetching.classList.toggle('hidden', !fetching);
+
+  const pages = Array.isArray(event.pages) ? event.pages : [];
+  progressList.replaceChildren(...pages.map(progressRow));
 }
 
 function evidencePre(data) {
@@ -455,6 +630,14 @@ const EVIDENCE_VIEWS = {
     }
     return lines;
   },
+  'http.error_status': (e) => {
+    const lines = [];
+    if (e.status !== null && e.status !== undefined) {
+      lines.push({ label: 'HTTP status', value: String(e.status) });
+    }
+    lines.push(presenceLine('Final URL', e.finalUrl));
+    return lines;
+  },
 };
 
 /** Concise human-readable lines for a finding, or null when the evidence
@@ -522,22 +705,44 @@ function renderResults() {
   }
 
   // Scanner facts — the finding count is the SCANNER's unique finding count.
-  scanFacts.replaceChildren(
+  const facts = [
     el('span', null, `${scan.findings.length} findings`),
     el('span', null, `HTTP ${scan.status}`),
     el('span', null, `${scan.ttfbMs} ms TTFB`),
-  );
+  ];
+  if (Array.isArray(scan.pages)) {
+    // Truthful wording: only HTML pages (seed/scanned) count as "pages
+    // scanned" — a fetched non-HTML resource (`non_html`) is excluded by state.
+    const crawled = scan.pages.filter((p) => p.state === 'seed' || p.state === 'scanned').length;
+    facts.push(el('span', null, `${crawled} page${crawled === 1 ? '' : 's'} scanned`));
+  }
+  scanFacts.replaceChildren(...facts);
 
-  // Partial-scan warning (unavailableChecks / partial — honest labeling).
+  // Partial-scan warning (unavailableChecks / crawl failures — honest labeling).
   const unavailable = Array.isArray(scan.unavailableChecks) ? scan.unavailableChecks : [];
-  if (scan.partial === true || unavailable.length > 0) {
+  const crawlFailures = Array.isArray(scan.crawlFailures) ? scan.crawlFailures : [];
+  if (scan.partial === true || unavailable.length > 0 || crawlFailures.length > 0) {
     partialList.replaceChildren(
       ...unavailable.map((u) => el('li', null, `${u.type} — ${u.reason}`)),
+      ...crawlFailures.map((f) => el('li', null, `page not fetched — ${f.url} — ${f.reason}`)),
     );
     partialWarning.classList.remove('hidden');
   } else {
     partialWarning.classList.add('hidden');
     partialList.replaceChildren();
+  }
+
+  // Skipped URLs (robots.txt / origin boundary): policy, listed separately —
+  // never dressed up as scanned, never counted as missing evidence.
+  const skipped = Array.isArray(scan.skipped) ? scan.skipped : [];
+  if (skipped.length > 0) {
+    skippedList.replaceChildren(
+      ...skipped.map((s) => el('li', null, `not crawled — ${s.url} — ${s.reason}`)),
+    );
+    skippedPanel.classList.remove('hidden');
+  } else {
+    skippedPanel.classList.add('hidden');
+    skippedList.replaceChildren();
   }
 
   if (plan) {
@@ -600,10 +805,13 @@ function planCard(result, finding, priority) {
 
   const body = el('div', 'card-body');
 
-  // Scanner: what was observed.
+  // Scanner: what was observed (+ page attribution).
   const observed = el('div', 'card-block');
   observed.append(el('p', 'micro-label', 'Scanner · what was observed'));
   observed.append(el('p', 'card-note', finding ? finding.note : 'Finding unavailable.'));
+  if (finding && finding.pageUrl) {
+    observed.append(el('p', 'card-page', finding.pageUrl));
+  }
   body.append(observed);
 
   // AI: decision-layer fields.
@@ -655,6 +863,9 @@ function rawCard(finding) {
   card.append(summary);
 
   const body = el('div', 'card-body');
+  if (finding.pageUrl) {
+    body.append(el('p', 'card-page', finding.pageUrl));
+  }
   body.append(evidenceBlock(finding, 'Evidence'));
   card.append(body);
   return card;
@@ -664,3 +875,13 @@ function rawCard(finding) {
 input.addEventListener('input', () => {
   if (input.hasAttribute('aria-invalid')) clearError();
 });
+
+// PWA: register the app-shell service worker (browsers only — guarded so
+// environments without a ServiceWorkerContainer, like the test harness, are
+// unaffected). The worker caches only the static shell; /api/* is never
+// cached, so scanning stays online-dependent and fails honestly offline.
+if (typeof navigator !== 'undefined'
+    && navigator.serviceWorker
+    && typeof navigator.serviceWorker.register === 'function') {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}

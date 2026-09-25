@@ -72,11 +72,23 @@ Build mode: fast (recorded at Slice 1 approval — concise narration and verific
 
 ## Hands-on Checkpoints
 
-- [ ] Early usable behavior explored — after slice 4 (first full end-to-end journey; feedback shapes slices 5–6)
-- [ ] Final kick-the-tires exploration and feedback completed — after slice 6
+- [x] Early usable behavior explored — after slice 4 (first full end-to-end journey; feedback shapes slices 5–6)
+  Evidence: learner-run manual checks — example.com (full flow), kaossub.onrender.co, invalid/empty URL handling, isaiahwebdev.onrender.com (zero-findings behavior). Recorded from completed manual tests only; no additional evidence invented.
+- [x] Final kick-the-tires exploration and feedback completed — after slice 6
 
 ## Final Review
 
+Learner's recorded requests (this review round):
+
+- [ ] **Bounded same-origin multi-page crawl** — seed URL + maximum 10 pages total per scan; same-origin/internal links only, no external-domain crawling; no Puppeteer/Playwright; no authentication; no background jobs; no database/history; full SSRF protection preserved for every requested URL; loops and duplicate URLs prevented.
+- [ ] **HTTP status-code findings** — 404, 410, 500, 502, 503 and other relevant 4xx/5xx responses become first-class scanner findings with factual status-code evidence.
+- [ ] **Page-level attribution** — every finding records which URL produced its evidence; results show it.
+- [ ] **Aggregated AI input** — findings/evidence from all scanned pages reach the AI so it can identify useful cross-page patterns; the scanner remains the source of truth (no AI-invented findings).
+- [ ] **Honest multi-page progress** — scanning state shows actual completed/discovered pages; no invented percentage progress.
+- [ ] **New Scan + Rescan without refresh** — New Scan returns to the start state from results; Rescan where appropriate; clean existing visual language preserved.
+- [ ] **Product framing** — Site Rescue answers: "What is broken across this website, what matters most, and what exactly should I fix?" Checks stay focused and small — not a generic SEO crawler.
+- [ ] **Three priorities unchanged** — Fix now / Fix next / Improve later.
+- [ ] **Android APK not built** — deferred as a later distribution option after the web product is stable.
 - [ ] Final review complete — feedback resolved and learner confirms ready to ship
 
 ## Code Tour and App Map
@@ -92,3 +104,7 @@ Reflection:
 Activity mode: 
 
 ## Revisions
+
+- **Scope revision, Final Review (learner-requested): single-page scanning → bounded same-origin multi-page scanning.** What changed: the scan grows from one pasted page to a seed URL plus a deliberately constrained crawl — maximum 10 pages total per scan, same-origin/internal links only (no external-domain crawling), no Puppeteer/Playwright, no authentication, no background jobs, no database/history, SSRF protection preserved for every requested URL, loops and duplicate URLs prevented. Findings gain page-level attribution (each knows which URL produced its evidence); HTTP 4xx/5xx responses (404, 410, 500, 502, 503, other relevant) become first-class findings with factual status-code evidence; the AI receives the aggregated structured findings and may identify cross-page patterns while the scanner stays the source of truth; the UI gains honest completed/discovered page progress plus New Scan/Rescan actions that return to the start state without a browser refresh. What the build discovered: the original product answered "what's wrong with this page" — the learner's reviewed product must answer "what is broken across this website, what matters most, and what exactly should I fix." Checks stay focused and small (15 → 16 conditions); the three priorities (Fix now / Fix next / Improve later) and the existing SSRF/validator/provider boundaries stay unchanged. Android APK explicitly deferred (later distribution option, after the web product is stable).
+- **Provider revision (recorded from the completed build): Gemini → OpenRouter.** The Novita-served `inclusionai/ling-3.0-flash-fin:free` model does not support structured outputs, so the provider sends no `response_format`; the parser tolerates a surrounding Markdown fence only, `validatePlan` remains the final authority, and documentation alignment is complete (code, README, `.env.example` migrated and verified end-to-end; `scope.md`, `prd.md`, `spec.md`, and `README.md` now describe OpenRouter, the bounded crawl, streamed progress, `pageUrl` attribution, and the 16-check catalog — earlier Gemini/single-page statements remain only as recorded history marked superseded by the spec's Revision record).
+- **PWA packaging (Final Review commit round): installable Progressive Web App added as a delivery layer.** What changed: `public/manifest.webmanifest` (name "Site Rescue", `start_url` `/`, standalone, `#0a0a0a` theme/background, 192+512 maskable PNG icons), `public/sw.js` (static-shell cache only — `/api/*` never cached), generated `public/icons/` (192, 512, apple-touch-icon 180), installability metadata in `index.html`, and one guarded registration line in `app.js`. What the build discovered: the roadmap required installable packaging of the existing web app with no second codebase, so the plan gained a packaging layer that appeared in no original slice; it adds no product features and does not expand the PoC boundary — the shell may open offline, but scans stay network-dependent and fail honestly.

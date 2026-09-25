@@ -1,7 +1,13 @@
-// checks — the complete 15-condition catalog with the exact approved
+// checks — the complete 16-condition catalog with the exact approved
 // thresholds. Facts only: every fired check produces one finding carrying
 // structured evidence; unavailable probes become unavailableChecks and are
 // NEVER converted into findings or silent passes.
+// Content gate (content-aware scanning revision): runChecks assumes the page
+// IS HTML. runPageChecks is the content-type-aware entry point both the seed
+// and the crawl use — HTML responses get this catalog, any other content type
+// (PDF, image, CSS, JS, fonts, archives…) gets only its factual HTTP status
+// plus an honest unavailableChecks entry. No HTML check ever runs against a
+// non-HTML payload, and no HTML findings are ever fabricated for one.
 // Spec ref: spec.md > Scanner > checks (thresholds table + robots evidence).
 
 import {
@@ -10,6 +16,8 @@ import {
   GENERIC_LINK_PHRASES,
 } from '../checkConfig.js';
 import { createFindingFactory } from './findingTypes.js';
+import { parseHtml } from './parseHtml.js';
+import { isHtmlResponse, responseContentType } from './fetchPage.js';
 
 /* ---------------- robots.txt matching (UA: * only, longest match wins) --- */
 
@@ -103,18 +111,23 @@ function hasNofollow(tokens) {
   return tokens.includes('nofollow') || tokens.includes('none');
 }
 
-/* ---------------- the 15 checks ------------------------------------------ */
+/* ---------------- the 16 checks ------------------------------------------ */
 
 /**
- * Run all 15 conditions.
+ * Run all 16 conditions.
  * @param input.requestedUrl  normalized URL the user asked to scan
  * @param input.page          { finalUrl, status, ttfbMs, headers }
  * @param input.signals       parseHtml output
  * @param input.probes        { robots, favicon } probe results
+ * @param input.factory       optional shared finding factory (one per scan,
+ *                            keeps f_N ids unique across crawled pages)
  * @returns { findings, unavailableChecks, partial }
  */
-export function runChecks({ requestedUrl, page, signals, probes }) {
-  const make = createFindingFactory();
+export function runChecks({ requestedUrl, page, signals, probes, factory }) {
+  const sharedFactory = factory ?? createFindingFactory();
+  // Page attribution: evidence came from the content at the final URL.
+  const make = (type, note, evidence) =>
+    sharedFactory(type, note, evidence, page.finalUrl);
   const findings = [];
   const unavailableChecks = [];
 
@@ -391,9 +404,75 @@ export function runChecks({ requestedUrl, page, signals, probes }) {
     // resource; we do not claim "missing" we cannot prove (honesty rule).
   }
 
+  /* 16 — http.error_status (factual status-code finding; probe responses and
+     favicon/robots probes are EXCLUDED — this reads only the scanned page's
+     own final HTTP status). */
+  if (page.status >= 400) {
+    findings.push(
+      make('http.error_status', `The server responded with HTTP ${page.status} for this page.`, {
+        requestedUrl,
+        finalUrl: page.finalUrl,
+        status: page.status,
+        rule: 'final HTTP status >= 400 on the scanned page itself (probes excluded)',
+      }),
+    );
+  }
+
   return {
     findings,
     unavailableChecks,
     partial: unavailableChecks.length > 0,
+  };
+}
+
+/**
+ * Content-type-aware page check — the ONE entry point for checking a fetched
+ * page (seed or crawled). Content-Type from the response is authoritative:
+ *
+ *  - HTML response  → parse + the full 16-check catalog (runChecks) and its
+ *                     anchors feed link discovery;
+ *  - anything else  → NO HTML checks, NO link discovery. Only the factual
+ *                     HTTP status may be recorded: a >= 400 response still
+ *                     produces http.error_status (the server's own answer is
+ *                     a fact), and an honest unavailableChecks entry records
+ *                     WHY the HTML checks did not run. Zero findings otherwise.
+ *
+ * Returns { findings, unavailableChecks, partial, signals, contentType,
+ *           state: 'scanned' | 'non_html' } — `signals.anchors` is empty for
+ * non-HTML content so callers can never discover links from a PDF/image/CSS/JS
+ * payload.
+ */
+export function runPageChecks({ requestedUrl, page, probes, factory }) {
+  const contentType = responseContentType(page);
+
+  if (isHtmlResponse(page)) {
+    const signals = parseHtml(page.body);
+    const run = runChecks({ requestedUrl, page, signals, probes, factory });
+    return { ...run, signals, contentType, state: 'scanned' };
+  }
+
+  // Non-HTML response: the HTTP status is still a fact worth recording, but
+  // every HTML-specific check is inapplicable — never fabricated, never a pass.
+  const findings = [];
+  if (page.status >= 400) {
+    findings.push(
+      factory('http.error_status', `The server responded with HTTP ${page.status} for this page.`, {
+        requestedUrl,
+        finalUrl: page.finalUrl,
+        status: page.status,
+        rule: 'final HTTP status >= 400 on the scanned page itself (probes excluded)',
+      }, page.finalUrl),
+    );
+  }
+  return {
+    findings,
+    unavailableChecks: [{
+      type: 'html.checks',
+      reason: `${requestedUrl} responded ${contentType || 'without a Content-Type'} — not HTML, so SEO/accessibility checks were not run.`,
+    }],
+    partial: true,
+    signals: { anchors: [] }, // non-HTML content is never a link source
+    contentType,
+    state: 'non_html',
   };
 }

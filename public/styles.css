@@ -569,10 +569,11 @@
     border-color: color-mix(in srgb, var(--color-amber-500) 55%, transparent);
   }
 }
-#partial-list li {
+#partial-list li, #skipped-list li {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-neutral-400);
+  word-break: break-all;
 }
 .facts-row {
   display: flex;
@@ -582,6 +583,31 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-neutral-400);
+}
+.progress-counts {
+  margin-top: calc(var(--spacing) * 2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-300);
+}
+.progress-fetching {
+  margin-top: calc(var(--spacing) * 1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-amber-500);
+  word-break: break-all;
+}
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1);
+  margin-top: calc(var(--spacing) * 3);
+}
+.progress-page {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-400);
+  word-break: break-all;
 }
 .micro-label {
   font-family: var(--font-mono);
@@ -720,6 +746,12 @@
 .card-note {
   font-size: var(--text-sm);
   color: var(--color-neutral-300);
+}
+.card-page {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-neutral-500);
+  word-break: break-all;
 }
 .field {
   display: flex;
