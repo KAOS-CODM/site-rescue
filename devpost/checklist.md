@@ -80,28 +80,30 @@ Build mode: fast (recorded at Slice 1 approval — concise narration and verific
 
 Learner's recorded requests (this review round):
 
-- [ ] **Bounded same-origin multi-page crawl** — seed URL + maximum 10 pages total per scan; same-origin/internal links only, no external-domain crawling; no Puppeteer/Playwright; no authentication; no background jobs; no database/history; full SSRF protection preserved for every requested URL; loops and duplicate URLs prevented.
-- [ ] **HTTP status-code findings** — 404, 410, 500, 502, 503 and other relevant 4xx/5xx responses become first-class scanner findings with factual status-code evidence.
-- [ ] **Page-level attribution** — every finding records which URL produced its evidence; results show it.
-- [ ] **Aggregated AI input** — findings/evidence from all scanned pages reach the AI so it can identify useful cross-page patterns; the scanner remains the source of truth (no AI-invented findings).
-- [ ] **Honest multi-page progress** — scanning state shows actual completed/discovered pages; no invented percentage progress.
-- [ ] **New Scan + Rescan without refresh** — New Scan returns to the start state from results; Rescan where appropriate; clean existing visual language preserved.
-- [ ] **Product framing** — Site Rescue answers: "What is broken across this website, what matters most, and what exactly should I fix?" Checks stay focused and small — not a generic SEO crawler.
-- [ ] **Three priorities unchanged** — Fix now / Fix next / Improve later.
-- [ ] **Android APK not built** — deferred as a later distribution option after the web product is stable.
-- [ ] Final review complete — feedback resolved and learner confirms ready to ship
+Verification record: all nine requests implemented and mechanically verified (463/463 suite + live/production checks), committed as `a7aab55`; learner retry PASS — live multi-page scans (7-page and 10-page/42-finding runs with correct `pageUrl` attribution), Rescan fresh-run, New Scan reset (slice4-ui T4b), non-HTML 404 honesty (`http.error_status` only + `html.checks` partial disclosure), two successful live OpenRouter plans (cross-page summary: "A scan of 10 pages… across nearly every page" — no single-page collapse), PWA 56/56. Learner reviewed the retry report and explicitly confirmed ready to ship.
+
+- [x] **Bounded same-origin multi-page crawl** — seed URL + maximum 10 pages total per scan; same-origin/internal links only, no external-domain crawling; no Puppeteer/Playwright; no authentication; no background jobs; no database/history; full SSRF protection preserved for every requested URL; loops and duplicate URLs prevented.
+- [x] **HTTP status-code findings** — 404, 410, 500, 502, 503 and other relevant 4xx/5xx responses become first-class scanner findings with factual status-code evidence.
+- [x] **Page-level attribution** — every finding records which URL produced its evidence; results show it.
+- [x] **Aggregated AI input** — findings/evidence from all scanned pages reach the AI so it can identify useful cross-page patterns; the scanner remains the source of truth (no AI-invented findings).
+- [x] **Honest multi-page progress** — scanning state shows actual completed/discovered pages; no invented percentage progress.
+- [x] **New Scan + Rescan without refresh** — New Scan returns to the start state from results; Rescan where appropriate; clean existing visual language preserved.
+- [x] **Product framing** — Site Rescue answers: "What is broken across this website, what matters most, and what exactly should I fix?" Checks stay focused and small — not a generic SEO crawler.
+- [x] **Three priorities unchanged** — Fix now / Fix next / Improve later.
+- [x] **Android APK not built** — deferred as a later distribution option after the web product is stable.
+- [x] Final review complete — feedback resolved and learner confirms ready to ship
 
 ## Code Tour and App Map
 
-- [ ] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
-- [ ] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
-- [ ] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
+- [x] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
+- [x] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
+- [x] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
 
-Activity and evidence: 
-Route and stops: 
-Edit outcome: 
-Reflection: 
-Activity mode: 
+Activity and evidence: Guided Code Tour (~3–5 min) walked by the learner over the finished implementation: followed one acceptance criterion — the plan validator — from the spec sentence written before any adapter code, through the implementation, to its recorded verification result. Learner opened each stop and participated; connection stated: a mechanical acceptance criterion makes agent output verifiable without trusting the agent (their desired learning outcome — turning an idea into a clear technical plan before letting the agent build).
+Route and stops: (1) `devpost/spec.md` — heading "Plan validator": every plan `findingId` must exist in scanner input and appear exactly once; invented/missing/duplicate IDs reject the plan. (2) `src/ai/validatePlan.js` — search `validatePlan(plan, findings)`: `inputIds`/`inputSet`, duplicate-counting `seen` map, exactly-once final loop → `{ ok: false, reason }` → `src/server.js` (search `ai_failed`) → `502 { error: 'ai_failed' }` → UI keeps findings + honest failure panel with Retry (search `ai-failure` in `public/index.html`). (3) `devpost/checklist.md` slice 3 "Verify (mechanical)": fixture outputs with an invented, missing, and duplicate ID → all three rejected; Final Review record: live OpenRouter plans ID-exact, suite 463/463.
+Edit outcome: offered (safe tagline edit in `public/index.html`) — declined; tagline unchanged, no replacement exercise.
+Reflection: offered and answered — learner's own words recorded only in the ignored `devpost/learner-profile.md`.
+Activity mode: Guided route (default for a newcomer to plan-first workflows, per profile; experienced with agents/git but first structured plan-first workflow).
 
 ## Revisions
 

@@ -20,7 +20,7 @@ If the AI step fails (free-tier rate limit, provider outage), the scan results s
 ## Quick start
 
 ```bash
-git clone <repo-url> site-rescue
+git clone https://github.com/KAOS-CODM/site-rescue site-rescue
 cd site-rescue
 npm install
 cp .env.example .env      # Windows: copy .env.example .env

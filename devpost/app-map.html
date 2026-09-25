@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Rescue — App Map</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 2rem 1.25rem 4rem;
+      background: #0a0a0a; color: #d4d4d4;
+      font: 15px/1.6 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    }
+    main { max-width: 46rem; margin: 0 auto; }
+    h1, h2 { color: #fafafa; letter-spacing: 0.01em; }
+    h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+    h2 { font-size: 1.05rem; margin: 2.25rem 0 .75rem; text-transform: uppercase; letter-spacing: .14em; font-size: .78rem; color: #f59e0b; }
+    p { margin: .5rem 0; }
+    .tag { color: #a3a3a3; font-family: ui-monospace, "Cascadia Mono", monospace; font-size: .8rem; }
+    code, .path {
+      font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+      font-size: .85em; background: #171717; color: #fbbf24;
+      padding: .08em .4em; border-radius: 3px; border: 1px solid #262626;
+    }
+    ul { padding-left: 1.2rem; }
+    li { margin: .35rem 0; }
+    .note { border-left: 3px solid #f59e0b; background: #171717; padding: .6rem .9rem; border-radius: 0 4px 4px 0; }
+    .stop { border: 1px solid #262626; background: #141414; border-radius: 6px; padding: .8rem 1rem; margin: .7rem 0; }
+    .stop .n { color: #f59e0b; font-family: ui-monospace, monospace; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
+    .stop h3 { margin: .2rem 0 .35rem; font-size: .98rem; color: #fafafa; }
+    figure { margin: 1rem 0; }
+    figcaption { color: #a3a3a3; font-size: .8rem; margin-top: .4rem; }
+    svg { width: 100%; height: auto; background: #141414; border: 1px solid #262626; border-radius: 6px; }
+    details { border: 1px solid #262626; border-radius: 6px; padding: .55rem .9rem; background: #141414; }
+    details + details { margin-top: .6rem; }
+    summary { cursor: pointer; color: #fafafa; font-weight: 600; padding: .2rem 0; }
+    summary:focus-visible, a:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+    a { color: #fbbf24; }
+    footer { margin-top: 2.5rem; border-top: 1px solid #262626; padding-top: 1rem; color: #a3a3a3; font-size: .85rem; }
+    dl { margin: .4rem 0 0; }
+    dt { color: #fafafa; font-weight: 600; font-size: .88rem; margin-top: .55rem; }
+    dd { margin: .1rem 0 0 1.1rem; }
+  </style>
+</head>
+<body>
+<main>
+
+  <h1>Site Rescue — App Map</h1>
+  <p class="tag">A compact take-home guide to how the app is put together. Snapshot of source commit <code>a7aab55</code> — it can drift as work continues; re-check paths against the repo.</p>
+
+  <h2>What it is</h2>
+  <p>Paste a <strong>public</strong> website URL. Site Rescue crawls that site (the seed page plus up to <strong>10 same-origin pages</strong>), runs <strong>16 fixed checks</strong> per HTML page, and shows every finding with the evidence that proves it and <strong>which page it came from</strong>. Then an AI layer turns those findings into a rescue plan — <strong>Fix now / Fix next / Improve later</strong> — with an explanation and a developer task for each.</p>
+  <p>Two rules shape everything: the <strong>scanner is the source of truth</strong> (the AI never invents findings — every plan result must map to a real scanner finding, exactly once, or the plan is rejected), and the app is <strong>honest about what it couldn't check</strong> (partial scans say so; non-HTML responses only ever yield a factual HTTP-status finding).</p>
+
+  <h2>The main pieces</h2>
+  <ul>
+    <li><span class="path">public/</span> — the browser app: three-state UI (<span class="path">index.html</span> + <span class="path">app.js</span>), compiled Tailwind (<span class="path">styles.css</span>), PWA shell (<span class="path">manifest.webmanifest</span>, <span class="path">sw.js</span>, <span class="path">icons/</span> — caches the shell only, never <code>/api/*</code>).</li>
+    <li><span class="path">src/server.js</span> — one Express process: serves the app, mounts <code>POST /api/scan</code> (SSE-style stream) and <code>POST /api/plan</code>.</li>
+    <li><span class="path">src/scanner/</span> — SSRF-guarded fetch → cheerio parse → the 16 checks, inside a bounded same-origin crawl (<span class="path">crawl.js</span>).</li>
+    <li><span class="path">src/ai/</span> — provider adapter (OpenRouter) + <span class="path">validatePlan.js</span>, the validator that keeps the AI honest.</li>
+    <li><span class="path">src/checkConfig.js</span> — every threshold in one place (page budget, byte cap, timeouts).</li>
+  </ul>
+
+  <h2>One action, end to end</h2>
+  <figure>
+    <svg viewBox="0 0 860 320" role="img" aria-labelledby="diagTitle diagDesc">
+      <title id="diagTitle">How a scan becomes a rescue plan</title>
+      <desc id="diagDesc">A URL enters the browser app. The browser posts it to the Express server, which runs a bounded same-origin crawl of fetch, parse, and checks producing findings with page URLs. Findings go back to the browser and onward via the AI adapter to OpenRouter, whose response is validated so every result maps to a real finding exactly once. The plan returns to the browser as three priority groups. If validation fails, the server reports ai_failed and the browser keeps the findings with a Retry button.</desc>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#a3a3a3"></path>
+        </marker>
+      </defs>
+      <g font-family="ui-monospace, Consolas, monospace" font-size="13">
+        <rect x="20" y="24" width="170" height="54" rx="6" fill="#1c1c1c" stroke="#f59e0b"></rect>
+        <text x="105" y="46" fill="#fafafa" text-anchor="middle">you type a URL</text>
+        <text x="105" y="64" fill="#a3a3a3" text-anchor="middle">public/ → start screen</text>
+
+        <line x1="190" y1="51" x2="242" y2="51" stroke="#a3a3a3" marker-end="url(#arrow)"></line>
+        <text x="216" y="42" fill="#a3a3a3" text-anchor="middle" font-size="10">POST</text>
+
+        <rect x="245" y="24" width="180" height="54" rx="6" fill="#1c1c1c" stroke="#404040"></rect>
+        <text x="335" y="46" fill="#fafafa" text-anchor="middle">Express server</text>
+        <text x="335" y="64" fill="#a3a3a3" text-anchor="middle">src/server.js</text>
+
+        <line x1="425" y1="51" x2="477" y2="51" stroke="#a3a3a3" marker-end="url(#arrow)"></line>
+
+        <rect x="480" y="12" width="360" height="78" rx="6" fill="#1c1c1c" stroke="#404040"></rect>
+        <text x="660" y="36" fill="#fafafa" text-anchor="middle">bounded crawl: fetch → parse → checks</text>
+        <text x="660" y="56" fill="#a3a3a3" text-anchor="middle">src/scanner/ · ≤10 pages · SSRF guards</text>
+        <text x="660" y="76" fill="#fbbf24" text-anchor="middle">findings[] + pageUrl + evidence</text>
+
+        <line x1="660" y1="90" x2="660" y2="128" stroke="#a3a3a3" marker-end="url(#arrow)"></line>
+        <text x="700" y="114" fill="#a3a3a3" font-size="10">streamed result</text>
+
+        <rect x="480" y="132" width="360" height="54" rx="6" fill="#1c1c1c" stroke="#404040"></rect>
+        <text x="660" y="154" fill="#fafafa" text-anchor="middle">browser: findings screen</text>
+        <text x="660" y="172" fill="#a3a3a3" text-anchor="middle">public/app.js · honest states</text>
+
+        <line x1="480" y1="159" x2="428" y2="159" stroke="#a3a3a3" marker-end="url(#arrow)"></line>
+        <text x="454" y="150" fill="#a3a3a3" text-anchor="middle" font-size="10">POST</text>
+
+        <rect x="245" y="132" width="180" height="54" rx="6" fill="#1c1c1c" stroke="#404040"></rect>
+        <text x="335" y="154" fill="#fafafa" text-anchor="middle">AI adapter</text>
+        <text x="335" y="172" fill="#a3a3a3" text-anchor="middle">src/ai/adapter.js</text>
+
+        <line x1="335" y1="186" x2="335" y2="224" stroke="#a3a3a3" marker-end="url(#arrow)"></line>
+
+        <rect x="230" y="228" width="210" height="54" rx="6" fill="#1c1c1c" stroke="#a3a3a3" stroke-dasharray="4 3"></rect>
+        <text x="335" y="250" fill="#fafafa" text-anchor="middle">OpenRouter (external)</text>
+        <text x="335" y="268" fill="#a3a3a3" text-anchor="middle">env-configured model</text>
+
+        <line x1="440" y1="255" x2="512" y2="255" stroke="#a3a3a3" marker-end="url(#arrow)"></line>
+
+        <rect x="515" y="228" width="325" height="54" rx="6" fill="#1c1c1c" stroke="#f59e0b"></rect>
+        <text x="677" y="250" fill="#fafafa" text-anchor="middle">validatePlan: every findingId real,</text>
+        <text x="677" y="268" fill="#fbbf24" text-anchor="middle">exactly once → else ai_failed</text>
+
+        <path d="M 515 255 L 140 255 L 140 210 L 105 210" fill="none" stroke="#a3a3a3" stroke-dasharray="5 4" marker-end="url(#arrow)"></path>
+        <text x="300" y="246" fill="#a3a3a3" text-anchor="middle" font-size="10">plan (3 priorities + tasks) → results screen</text>
+        <text x="140" y="230" fill="#a3a3a3" font-size="10" transform="rotate(-90 140 230)">or ai_failed → findings kept + Retry</text>
+      </g>
+    </svg>
+    <figcaption>One action: a URL in, a validated rescue plan out — with the honest failure path drawn too.</figcaption>
+  </figure>
+
+  <h2>Reference route — 3 stops</h2>
+  <p class="tag">A guided walk-through of one acceptance criterion: plan → code → evidence. If you toured these live in the Code Tour, they are your tour stops; otherwise use them as a reference route.</p>
+
+  <div class="stop">
+    <span class="n">Stop 1 · the plan</span>
+    <h3><code>devpost/spec.md</code> — search “Plan validator”</h3>
+    <p>The acceptance criterion written <strong>before any adapter code existed</strong>: every plan <code>findingId</code> must exist in the scanner’s input and every input finding must appear exactly once — invented, missing, or duplicated IDs reject the whole plan. Observable and mechanical, so “does the agent’s output pass?” never required trusting the agent.</p>
+  </div>
+
+  <div class="stop">
+    <span class="n">Stop 2 · the code</span>
+    <h3><code>src/ai/validatePlan.js</code> — search <code>validatePlan(plan, findings)</code></h3>
+    <p><code>inputIds</code>/<code>inputSet</code> are built from the scanner’s findings; a <code>seen</code> map counts duplicates; a final loop checks every input id appears. Any miss returns <code>{ ok: false, reason }</code>, which <code>src/server.js</code> (search <code>ai_failed</code>) turns into a <code>502 { error: 'ai_failed' }</code> — the UI then keeps the findings and shows the honest failure panel with <strong>Retry rescue plan</strong> (search <code>ai-failure</code> in <code>public/index.html</code>).</p>
+  </div>
+
+  <div class="stop">
+    <span class="n">Stop 3 · the observed result</span>
+    <h3><code>devpost/checklist.md</code> — slice 3, <em>Verify (mechanical)</em></h3>
+    <p>The recorded evidence: fixture outputs containing an invented ID, a missing ID, and a duplicate ID → <strong>all three rejected</strong>; plus the Final Review verification record — live OpenRouter plans where every result mapped to a real scanner finding exactly once (full suite 463/463). The criterion → the check → the observation, in one line.</p>
+  </div>
+
+  <h2>To change this, start here</h2>
+  <details open>
+    <summary>Common changes → first file to open</summary>
+    <dl>
+      <dt>Add or tune a check</dt>
+      <dd><code>src/scanner/checks.js</code> + stable type ID in <code>src/scanner/findingTypes.js</code> + a row in <code>devpost/spec.md</code>’s check table.</dd>
+      <dt>Page budget / size cap / timeouts</dt>
+      <dd><code>src/checkConfig.js</code> — <code>MAX_CRAWLED_PAGES</code>, <code>MAX_RESPONSE_BYTES</code>, <code>TTFB_THRESHOLD_MS</code>.</dd>
+      <dt>Crawl rules (origin, robots, duplicates)</dt>
+      <dd><code>src/scanner/crawl.js</code> — plus the same-origin gate in <code>src/scanner/fetchPage.js</code>.</dd>
+      <dt>Switch the AI model or endpoint</dt>
+      <dd><code>.env</code> only (<code>AI_MODEL</code>, <code>AI_BASE_URL</code>, <code>AI_API_KEY</code>) — no code change; defaults live in <code>src/ai/openrouter.js</code>.</dd>
+      <dt>UI copy, screens, layout</dt>
+      <dd><code>public/index.html</code> (structure) and <code>public/app.js</code> — error wording via <code>scanErrorMessage</code>; styles from <code>src/styles/input.css</code> then <code>npm run build:css</code>.</dd>
+      <dt>Install icon / manifest / offline shell</dt>
+      <dd><code>public/manifest.webmanifest</code>, <code>public/sw.js</code> (shell list only), <code>public/icons/</code>.</dd>
+    </dl>
+  </details>
+
+  <details>
+    <summary>A practice to reuse — grounded in this project</summary>
+    <p><strong>The decision:</strong> before the AI adapter was written, the spec stated how we would <em>know</em> it worked — “every result maps to exactly one real scanner finding; invented, missing, or duplicate IDs → reject.”</p>
+    <p><strong>The evidence:</strong> <code>devpost/spec.md</code> § Plan validator → <code>src/ai/validatePlan.js</code> → <code>devpost/checklist.md</code> slice 3 <em>Verify (mechanical)</em> (three fixture attacks, all rejected) and the Final Review record (live plans, ID-exact, 463/463 suite).</p>
+    <p><strong>Reuse it:</strong> on any agent-assisted project, write “how we’ll prove this works” as an observable, mechanical rule <em>before</em> the build starts. The agent then builds toward a checkable target, and verification — not trust — answers whether it’s done.</p>
+  </details>
+
+  <footer>
+    <p><strong>Run it again:</strong> <code>npm install</code> → copy <code>.env.example</code> to <code>.env</code> and add your OpenRouter key → <code>npm start</code> → open <a href="http://localhost:3000">http://localhost:3000</a> (full steps in <code>README.md</code>).</p>
+    <p><strong>Repository:</strong> <a href="https://github.com/KAOS-CODM/site-rescue">https://github.com/KAOS-CODM/site-rescue</a></p>
+    <p>Offline-friendly page: no scripts, no CDN, no network calls — it works from disk with scripts disabled. This map is a snapshot of commit <code>a7aab55</code> and can drift as the project evolves.</p>
+  </footer>
+
+</main>
+</body>
+</html>
