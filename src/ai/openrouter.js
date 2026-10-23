@@ -1,8 +1,11 @@
 // openrouter.js — default AI provider implementation, env-configured.
 // OpenAI-compatible chat completions via OpenRouter.
-// Provider tested 2026-09-24 (independently, in Thunder Client) with
-// Novita / inclusionai/ling-3.0-flash-fin:free: normal JSON generation and
-// Site Rescue plan JSON both passed.
+// Provider tested 2026-10-23 against the live OpenRouter model list with
+// Novita / inclusionai/ling-3.0-flash: normal JSON generation and a full
+// Site Rescue plan (3 findings) both passed in ~3s. The previously pinned
+// `ling-3.0-flash-fin:free` id was delisted by OpenRouter and now returns
+// HTTP 404 — ai_failed — so the default moved to the current paid sibling
+// (~$0.02/M input tokens, fractions of a cent per plan).
 //   Endpoint : POST {AI_BASE_URL}/chat/completions
 //              https://openrouter.ai/api/v1/chat/completions
 //   Auth     : Authorization: Bearer {AI_API_KEY}
@@ -24,7 +27,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
-const DEFAULT_MODEL = 'inclusionai/ling-3.0-flash-fin:free';
+const DEFAULT_MODEL = 'inclusionai/ling-3.0-flash';
 const REQUEST_TIMEOUT_MS = 30000; // derived: bounded wait so /api/plan can't hang
 
 /** Every AI-layer failure is this error type; the route maps it to ai_failed. */

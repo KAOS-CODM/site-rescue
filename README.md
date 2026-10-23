@@ -61,7 +61,7 @@ Site Rescue is an installable Progressive Web App — the same web app, no separ
 | `AI_PROVIDER` | `openrouter` | must be `openrouter` or empty — anything else fails honestly |
 | `AI_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible chat-completions endpoint |
 | `AI_API_KEY` | *(your key)* | required only for the rescue-plan step |
-| `AI_MODEL` | `inclusionai/ling-3.0-flash-fin:free` | free chat model served via Novita |
+| `AI_MODEL` | `inclusionai/ling-3.0-flash` | chat model served via Novita (a fraction of a cent per scan; may require OpenRouter credits). The previously pinned `:free` variant was delisted in October 2026. If you want to try another free model, see the [OpenRouter models list](https://openrouter.ai/models/?max_price=0); free `:free` routes can be rate-limited or return invalid JSON, and this app has no automatic fallback/retry by design. |
 
 ## HTTP API
 
