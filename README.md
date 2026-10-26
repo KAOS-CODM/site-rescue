@@ -2,90 +2,91 @@
 
 **Find what's broken. Fix what matters.**
 
-Paste a website URL, get an evidence-backed rescue plan: what the scan found across the site (up to 10 of its own pages), what to fix first, and a concrete developer task for every issue — end to end.
+Paste a website URL, get an evidence-backed rescue plan: what the scan found across the site (up to 10 pages per scan), what to fix first, and a concrete developer task for every issue, end to end.
+
+## Live Demo
+
+Try Site Rescue: **https://site-rescue.onrender.com/**
+
+## Submission Documents
+
+- [Project Scope](devpost/scope.md) (`devpost/scope.md`)
+- [Product Requirements](devpost/prd.md) (`devpost/prd.md`)
+- [Technical Specification](devpost/spec.md) (`devpost/spec.md`)
+
+## How It Works
 
 Site Rescue is two small programs in one:
 
-- **The scanner — source of truth.** A bounded same-origin crawl — the seed page plus up to **10 pages per scan** (robots.txt honored, 2 MB response cap, loops/duplicates prevented) behind strict SSRF guards, `robots.txt` and `/favicon.ico` probes, and **16 fixed checks** (including HTTP 4xx/5xx status findings). Every finding carries a stable type ID (`seo.meta_description.missing`, `accessibility.link_text.generic`, …), the structured evidence that proves it, and the **page URL** that produced it. The scanner only reports what it actually observed.
-- **The AI decision layer.** Sends *only* the scanner's findings to an OpenAI-compatible model via **OpenRouter** (no tools, no browsing) to explain, prioritize (**Fix now / Fix next / Improve later**), and write developer tasks. The server validates every response: a plan that references any finding the scanner didn't produce — or drops/duplicates one — is rejected outright.
+- **The scanner: source of truth.** A bounded same-origin crawl of up to 10 pages per scan, with `robots.txt` honored, a 2 MB response cap, and loops and duplicates prevented. Strict SSRF guards protect the scanner. It also probes `robots.txt` and `/favicon.ico` and runs 16 fixed checks, including HTTP 4xx/5xx status findings. Every finding carries a stable type ID (`seo.meta_description.missing`, `accessibility.link_text.generic`, and others), structured evidence, and the page URL that produced it. The scanner only reports what it actually observed.
+- **The AI decision layer.** Sends only the scanner's findings to an OpenAI-compatible model via OpenRouter, with no tools or browsing. The model explains and prioritizes issues as **Fix now**, **Fix next**, or **Improve later**, and writes developer tasks. The server validates every response: a plan that references a finding the scanner didn't produce, or drops or duplicates one, is rejected outright.
 
-If the AI step fails (free-tier rate limit, provider outage), the scan results stay on screen and **Retry rescue plan** re-runs only the plan step — the site is never re-scanned, and no plan is ever fabricated.
+If the AI step fails because of a rate limit or provider outage, scan results stay on screen. **Retry rescue plan** reruns only the plan step. The site is never rescanned, and no plan is fabricated.
 
 ## Prerequisites
 
 - **Node.js 20+** (developed and verified on Node 22)
-- **Network access** — scanning fetches real public sites; the plan step calls OpenRouter
-- **An OpenRouter API key** — [get one at openrouter.ai/keys](https://openrouter.ai/keys) (the default model is a free `:free` variant)
+- **Network access:** scanning fetches real public sites, and the plan step calls OpenRouter.
+- **An OpenRouter API key:** [Get one at openrouter.ai/keys](https://openrouter.ai/keys). The default model, `inclusionai/ling-3.0-flash`, is served via Novita and may require OpenRouter credits.
 
-## Quick start
+## Quick Start
 
 ```bash
 git clone https://github.com/KAOS-CODM/site-rescue site-rescue
 cd site-rescue
 npm install
-cp .env.example .env      # Windows: copy .env.example .env
-# Edit .env and set:  AI_API_KEY=your-key-here
+cp .env.example .env
+# Windows: copy .env.example .env
+# Edit .env and set: AI_API_KEY=your-key-here
 npm start
 ```
 
-Open **http://localhost:3000**, paste a **public** website URL, press **Scan website**.
+Open [http://localhost:3000](http://localhost:3000), paste a public website URL, and press **Scan website**.
 
-> Your key lives only in `.env`, which is git-ignored. Never commit it, never paste it into chat or code.
+> **Your key lives only in `.env`, which is git-ignored. Never commit it or paste it into chat or code.**
 
-Scanning works even before the key is added; without a key only the rescue-plan step fails — honestly, with a Retry button.
+Scanning works even before the key is added. Without a key, only the rescue-plan step fails, with a **Retry** button.
 
-## What you'll see
+## What You'll See
 
-1. **Start** — URL input with client-side validation; invalid input never fires a request.
-2. **Scanning** — three honest phases tied to the real requests: *Scanning website → Analyzing findings → Building rescue plan*, plus streamed crawl progress in real counters (*4 pages scanned · 8 URLs discovered · max 10 pages*). No invented percentages.
-3. **Results** — scanned URL, HTTP status, time-to-first-byte, unique scanner findings, and pages scanned — with **Rescan this site** / **New scan** actions (no refresh needed); the rescue plan in three priority sections. Each compact, expandable card keeps the layers apart:
-   - **Scanner** — what was observed, **which page it came from** (`pageUrl` badge), human-readable evidence ("Meta description element: not found"), with the full JSON evidence one expansion deeper;
-   - **AI** — explanation, why it matters, developer task (+ acceptance criteria when provided).
+1. **Start:** URL input with client-side validation. Invalid input never fires a request.
+2. **Scanning:** Three honest phases tied to real requests: *Scanning website → Analyzing findings → Building rescue plan*, plus streamed crawl progress in real counters, such as *4 pages scanned · 8 URLs discovered · max 10 pages*. No invented percentages.
+3. **Results:** The scanned URL, HTTP status, time-to-first-byte, unique scanner findings, and pages scanned, with **Rescan this site** and **New scan** actions that work without a refresh. The rescue plan appears in three priority sections. Each compact, expandable card keeps the layers apart:
+   - **Scanner:** What was observed, which page it came from (`pageUrl` badge), and human-readable evidence, such as "Meta description element: not found." Full JSON evidence is available one expansion deeper.
+   - **AI:** Explanation, why the issue matters, and a developer task, including acceptance criteria when provided.
 
-Honesty rules are product requirements: partial scans (a probe couldn't run, a discovered page couldn't be fetched) are labeled as partial with the real reason — "not checked" is never shown as "passed"; URLs skipped by robots.txt or the origin boundary are listed separately (policy, not missing evidence); a clean scan renders a deterministic empty plan **without calling the AI**.
+Honesty rules are product requirements. Partial scans, such as when a probe cannot run or a discovered page cannot be fetched, are labeled as partial with the real reason. "Not checked" is never shown as "passed." URLs skipped by `robots.txt` or the origin boundary are listed separately because these are policy decisions, not missing evidence. A clean scan renders a deterministic empty plan without calling the AI.
 
-## Install as an app (PWA)
+## Install as an App (PWA)
 
-Site Rescue is an installable Progressive Web App — the same web app, no separate mobile codebase:
+Site Rescue is an installable Progressive Web App: the same web app, with no separate mobile codebase.
 
-- **Install:** in Chrome/Edge, click the install icon in the address bar (or menu → *Install Site Rescue*); on mobile, *Add to Home screen*. It launches in its own window as **Site Rescue** with the app icon.
-- **Offline:** the app shell (start screen, styles, scripts, icons) is cached by a small service worker, so the app opens without network.
-- **Scans always need network.** The service worker never caches API responses — a scan or rescue-plan step attempted offline fails honestly with the normal error message. No stale or fabricated results, ever.
+- **Install:** In Chrome or Edge, click the install icon in the address bar or select **Install Site Rescue** from the menu. On mobile, choose **Add to Home screen**. It launches in its own window as **Site Rescue** with the app icon.
+- **Offline:** The app shell, including the start screen, styles, scripts, and icons, is cached by a small service worker so the app can open without a network connection.
+- **Scans require a network connection.** The service worker never caches API responses. A scan or rescue-plan step attempted offline fails honestly with the normal error message. No stale or fabricated results.
 
 ## Configuration
 
-`.env` (copied from `.env.example`):
+Copy `.env.example` to `.env` and configure the variables below.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `AI_PROVIDER` | `openrouter` | must be `openrouter` or empty — anything else fails honestly |
-| `AI_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible chat-completions endpoint |
-| `AI_API_KEY` | *(your key)* | required only for the rescue-plan step |
-| `AI_MODEL` | `inclusionai/ling-3.0-flash` | chat model served via Novita (a fraction of a cent per scan; may require OpenRouter credits). The previously pinned `:free` variant was delisted in October 2026. If you want to try another free model, see the [OpenRouter models list](https://openrouter.ai/models/?max_price=0); free `:free` routes can be rate-limited or return invalid JSON, and this app has no automatic fallback/retry by design. |
+| `AI_PROVIDER` | `openrouter` | Must be `openrouter` or empty. Other values fail honestly. |
+| `AI_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible chat-completions endpoint. |
+| `AI_API_KEY` | *(your key)* | Required only for the rescue-plan step. |
+| `AI_MODEL` | `inclusionai/ling-3.0-flash` | Chat model served via Novita. It costs a fraction of a cent per scan and may require OpenRouter credits. The previously pinned `:free` variant was delisted in October 2026. To try another free model, see the [OpenRouter models list](https://openrouter.ai/models/?max_price=0). Free `:free` routes can be rate-limited or return invalid JSON. The app has no automatic fallback or retry by design. |
 
 ## HTTP API
 
-| Endpoint | Body | Success | Errors |
-|---|---|---|---|
-| `POST /api/scan` | `{ url }` | streamed `text/event-stream`: `{type:'progress', …}` events → one `{type:'result', result:{ url, finalUrl, status, ttfbMs, findings[], unavailableChecks?, partial?, pages[], discovered, skipped[], crawlFailures[], limit }}` | pre-stream JSON: `400 invalid_url` · `502 unreachable` · `500 scan_failed` |
-| `POST /api/plan` | `{ findings }` | `{ summary, results[] }` | `400 invalid_request` · `502 ai_failed` |
+The application exposes HTTP endpoints for website scanning and rescue-plan generation. See the source code and technical specification for implementation details.
 
-- Non-public URLs (localhost, private IP ranges, …) are rejected **before any request is attempted**, and every redirect hop is re-validated under the same rules.
-- The crawl stays on the seed's exact origin (no www/non-www mixing): robots.txt-disallowed, off-origin, duplicate, and failed URLs never count against the 10-page budget; failures and skips are listed in the result, never hidden.
-- Empty `findings` returns the deterministic empty plan — **no AI request is made**.
+## Scope (Deliberately Out)
 
-## Commands
+No database, accounts, scan history, or headless browser. Site Rescue uses a deliberately bounded same-origin crawl of up to 10 pages per scan, two requests with streamed progress, and in-memory results. Refreshing resets the interface to the start screen.
 
-| Command | What it does |
-|---|---|
-| `npm start` | run the server on http://localhost:3000 (override with the `PORT` env var) |
-| `npm run build:css` | compile Tailwind → `public/styles.css` |
-| `npm run watch:css` | recompile on change while restyling |
-
-## Scope (deliberately out)
-
-No database, accounts, scan history, or headless browser — a deliberately bounded same-origin crawl (≤ 10 pages per scan), two requests with streamed progress, in-memory results (a refresh resets to the start screen). See [`devpost/prd.md`](devpost/prd.md) for the full product requirements and [`devpost/spec.md`](devpost/spec.md) for the technical design.
+See the [Product Requirements](devpost/prd.md), [Technical Specification](devpost/spec.md), and [Project Scope](devpost/scope.md).
 
 ---
 
-Docs: [OpenRouter API](https://openrouter.ai/docs)
+Docs: [OpenRouter API](https://openrouter.ai/docs)  
+Source code: [KAOS-CODM/site-rescue](https://github.com/KAOS-CODM/site-rescue)
