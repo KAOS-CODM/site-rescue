@@ -9,7 +9,7 @@
     "build:css": "npx @tailwindcss/cli -i ./src/styles/input.css -o ./public/styles.css",
     "watch:css": "npx @tailwindcss/cli -i ./src/styles/input.css -o ./public/styles.css --watch"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
     "cheerio": "^1.2.0",
     "express": "^5.2.1"
